@@ -5,7 +5,7 @@ import { AvatarCacheProvider } from '@/contexts/AvatarCacheContext';
 import AppLayout from '@/components/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'Everyone Cook - AI-Powered Recipe Assistant',
+  title: 'Everyone Cook',
   description: 'Your personalized cooking assistant powered by AI',
 };
 
