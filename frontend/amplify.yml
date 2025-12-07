@@ -4,8 +4,8 @@ applications:
       phases:
         preBuild:
           commands:
-            - npm pkg delete scripts.prepare || true
-            - npm install --legacy-peer-deps
+            - export HUSKY=0
+            - npm install --legacy-peer-deps --ignore-scripts
         build:
           commands:
             - env | grep -e NEXT_PUBLIC_ >> .env.production || true
