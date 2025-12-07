@@ -1,0 +1,153 @@
+/* Custom animations for cooking page */
+
+@keyframes cookingPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.cooking-pulse {
+  animation: cookingPulse 2s ease-in-out infinite;
+}
+
+.shimmer {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(
+    to right,
+    #f3f4f6 0%,
+    #e5e7eb 20%,
+    #f3f4f6 40%,
+    #f3f4f6 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Gradient text animation */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(
+    90deg,
+    #8b5cf6,
+    #3b82f6,
+    #8b5cf6
+  );
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Smooth fade in */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Stagger animation for list items */
+.stagger-item {
+  animation: fadeIn 0.5s ease-out backwards;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0.1s; }
+.stagger-item:nth-child(2) { animation-delay: 0.2s; }
+.stagger-item:nth-child(3) { animation-delay: 0.3s; }
+.stagger-item:nth-child(4) { animation-delay: 0.4s; }
+.stagger-item:nth-child(5) { animation-delay: 0.5s; }
+
+/* Brighter input text */
+input[type="text"] {
+  color: #1f2937 !important;
+  font-weight: 500;
+}
+
+input[type="text"]::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+input[type="text"]:focus {
+  color: #111827 !important;
+}
+
+/* Prevent overflow and ensure responsive layout */
+.cooking-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.cooking-container * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive ingredient tags */
+.ingredient-tag {
+  max-width: calc(100vw - 8rem);
+  word-break: break-word;
+}
+
+/* Responsive dropdown positioning */
+.profile-dropdown {
+  right: 0;
+  left: auto;
+  transform: translateX(0);
+}
+
+@media (max-width: 640px) {
+  .profile-dropdown {
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+    max-width: calc(100vw - 2rem);
+  }
+  
+  .ingredient-tag {
+    max-width: calc(100vw - 6rem);
+  }
+}

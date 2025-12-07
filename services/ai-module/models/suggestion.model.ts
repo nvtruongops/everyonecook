@@ -1,0 +1,546 @@
+/**
+ * AI Recipe Suggestion Models
+ *
+ * Type definitions for AI recipe suggestion requests and responses.
+ *
+ * @see .kiro/specs/project-restructure/ai-services-design.md - Recipe Generation section
+ */
+
+/**
+ * Recipe difficulty levels
+ */
+export type RecipeDifficulty = 'easy' | 'medium' | 'hard';
+
+/**
+ * Recipe suggestion request (SIMPLIFIED for better caching)
+ *
+ * Only 4 core fields in cache key:
+ * - ingredients (sorted)
+ * - servings (1-5)
+ * - mealType (none/breakfast/lunch/dinner/snack)
+ * - maxCookingTime (15/30/45/60/90/120)
+ *
+ * Optional filters applied AFTER cache lookup
+ */
+export interface SuggestionRequest {
+  /** Vietnamese ingredient names (required) */
+  ingredients: string[];
+
+  /** Number of servings (1-5, default: 2) */
+  servings?: 1 | 2 | 3 | 4 | 5;
+
+  /** Meal type (default: 'none' = any) */
+  mealType?: 'none' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+  /** Max cooking time in minutes (default: 60) */
+  maxCookingTime?: 15 | 30 | 45 | 60 | 90 | 120;
+
+  /** Optional filters (NOT in cache key) */
+  dislikedIngredients?: string[];
+  skillLevel?: 'none' | 'beginner' | 'intermediate' | 'expert';
+  preferredCookingMethods?: ('none' | 'kho' | 'xào' | 'luộc' | 'nướng' | 'hấp' | 'chiên')[];
+}
+
+/**
+ * Job status
+ */
+export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+/**
+ * Recipe suggestion response
+ */
+export interface SuggestionResponse {
+  /** Job ID for status tracking */
+  jobId: string;
+
+  /** Job status */
+  status: JobStatus;
+
+  /** Response message */
+  message: string;
+
+  /** Estimated processing time in seconds (only for PENDING) */
+  estimatedTime?: number;
+
+  /** Whether result was from cache */
+  cacheHit?: boolean;
+
+  /** Recipes (only if cache hit or COMPLETED) */
+  recipes?: Recipe[];
+
+  /** Request duration in milliseconds */
+  duration?: number;
+}
+
+/**
+ * Recipe model
+ */
+export interface Recipe {
+  /** Recipe ID */
+  recipeId: string;
+
+  /** Recipe title */
+  title: string;
+
+  /** Recipe description */
+  description: string;
+
+  /** Ingredients list */
+  ingredients: RecipeIngredient[];
+
+  /** Cooking steps */
+  steps: RecipeStep[];
+
+  /** Nutrition information */
+  nutrition?: NutritionInfo;
+
+  /** Number of servings */
+  servings: number;
+
+  /** Total cooking time in minutes */
+  cookingTime: number;
+
+  /** Recipe difficulty */
+  difficulty: RecipeDifficulty;
+
+  /** Recipe images */
+  images?: RecipeImages;
+
+  /** Recipe metadata */
+  metadata?: RecipeMetadata;
+}
+
+/**
+ * Recipe ingredient
+ *
+ * Supports flexible units for better UX:
+ * - AI-generated recipes: AI chooses natural units (thìa, cup, gram)
+ * - User-created recipes: User chooses any unit they prefer
+ * - Nutrition calculation: Always converts to grams internally
+ */
+export interface RecipeIngredient {
+  /** Ingredient name (English) */
+  name: string;
+
+  /** Vietnamese name */
+  vietnameseName?: string;
+
+  /** Quantity (numeric value) */
+  quantity: number;
+
+  /**
+   * Unit of measurement
+   * Common units: gram, kg, ml, liter, cup, tablespoon, teaspoon, piece, etc.
+   *
+   * Examples:
+   * - "2 thìa đường" → quantity: 2, unit: "tablespoon"
+   * - "20g đường" → quantity: 20, unit: "gram"
+   * - "1 cup sữa" → quantity: 1, unit: "cup"
+   */
+  unit: string;
+
+  /**
+   * Equivalent in grams (for nutrition calculation)
+   * System auto-calculates this for common conversions:
+   * - 1 tablespoon sugar ≈ 12.5g
+   * - 1 cup milk ≈ 240ml ≈ 240g
+   * - 1 piece chicken breast ≈ 200g
+   *
+   * If not provided, nutrition calculation may be approximate
+   */
+  gramsEquivalent?: number;
+
+  /** Optional notes (e.g., "chopped", "diced", "to taste") */
+  notes?: string;
+}
+
+/**
+ * Recipe step
+ */
+export interface RecipeStep {
+  /** Step number */
+  stepNumber: number;
+
+  /** Step instruction */
+  instruction: string;
+
+  /** Step duration in minutes */
+  duration?: number;
+
+  /** Step image URL */
+  imageUrl?: string;
+}
+
+/**
+ * Nutrition information per serving
+ * Calculated from Dictionary nutrition data (per 100g) × amount
+ */
+export interface NutritionInfo {
+  /** Calories per serving */
+  calories: number;
+
+  /** Protein in grams per serving */
+  protein: number;
+
+  /** Carbohydrates in grams per serving */
+  carbs: number;
+
+  /** Fat in grams per serving */
+  fat: number;
+
+  /** Fiber in grams per serving */
+  fiber?: number;
+
+  /** Sodium in milligrams per serving */
+  sodium?: number;
+
+  /** Sugar in grams per serving */
+  sugar?: number;
+}
+
+/**
+ * Recipe images
+ */
+export interface RecipeImages {
+  /** Completed dish image */
+  completed?: string;
+
+  /** Step images */
+  steps?: string[];
+
+  /** Thumbnail image */
+  thumbnail?: string;
+}
+
+/**
+ * Recipe metadata
+ *
+ * Tracks recipe source and attribution for proper credit and copyright
+ */
+export interface RecipeMetadata {
+  /**
+   * Recipe source (3 types in MVP)
+   * - AI: Generated by AWS Bedrock from user's ingredient search
+   * - user: Manually created by user in Manager Recipe
+   * - imported: Saved from another user's social post
+   */
+  source: 'AI' | 'user' | 'imported';
+
+  /** Created timestamp */
+  createdAt: number;
+
+  /** Updated timestamp */
+  updatedAt: number;
+
+  /** Current owner user ID (who owns this recipe in Manager Recipe) */
+  authorId: string;
+
+  /**
+   * AI job ID (only if source = 'AI')
+   * Links back to original AI generation job
+   */
+  aiJobId?: string;
+
+  /**
+   * Original post ID (only if source = 'imported')
+   * Links back to social post where recipe was saved from
+   */
+  originalPostId?: string;
+
+  /**
+   * Original author ID (only if source = 'imported')
+   * Credits the user who originally shared the recipe
+   */
+  originalAuthorId?: string;
+
+  /**
+   * Import timestamp (only if source = 'imported')
+   */
+  importedAt?: number;
+
+  /**
+   * Shared post ID (if recipe was shared to social)
+   * Links Manager Recipe → Social Post (bidirectional)
+   */
+  sharedPostId?: string;
+
+  /**
+   * Share timestamp (if recipe was shared to social)
+   */
+  sharedAt?: number;
+
+  /** Recipe tags for categorization */
+  tags?: string[];
+
+  /** Recipe category (from 13 fixed categories) */
+  category?: string;
+
+  /** Cuisine type (Vietnamese, Thai, Japanese, etc.) */
+  cuisine?: string;
+}
+
+/**
+ * Cache result from DynamoDB
+ */
+export interface CacheResult {
+  /** Cache key */
+  cacheKey: string;
+
+  /** Cached recipes */
+  recipes: Recipe[];
+
+  /** Cache creation timestamp */
+  createdAt: string;
+
+  /** TTL timestamp (Unix seconds) */
+  ttl: number;
+
+  /** Settings used for caching */
+  settings: {
+    servings: number;
+    mealType: string;
+    maxTime: number;
+  };
+
+  /** GSI2 fields for search fallback */
+  GSI2PK: 'CACHE#PUBLIC';
+  GSI2SK: string;
+  searchableText: string;
+}
+
+/**
+ * AI job message for SQS
+ */
+export interface AIJobMessage {
+  /** Job ID */
+  jobId: string;
+
+  /** User ID */
+  userId: string;
+
+  /** English ingredient names (translated from Vietnamese) */
+  ingredients: string[];
+
+  /** Cache key for storing result */
+  cacheKey: string;
+
+  /** Recipe settings (SIMPLIFIED for better caching) */
+  settings: {
+    /** Number of servings (1-5 only) */
+    servings: 1 | 2 | 3 | 4 | 5;
+
+    /** Meal type (none = any) */
+    mealType: 'none' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+    /** Max cooking time (fixed values) */
+    maxTime: 15 | 30 | 45 | 60 | 90 | 120;
+
+    /** Optional filters (NOT in cache key) */
+    dislikedIngredients?: string[];
+    skillLevel?: 'none' | 'beginner' | 'intermediate' | 'expert';
+    preferredCookingMethods?: ('none' | 'kho' | 'xào' | 'luộc' | 'nướng' | 'hấp' | 'chiên')[];
+  };
+
+  /** Job creation timestamp */
+  timestamp: number;
+}
+
+/**
+ * Job status record in DynamoDB
+ */
+export interface JobStatusRecord {
+  /** Partition key: JOB#{jobId} */
+  PK: string;
+
+  /** Sort key: STATUS */
+  SK: string;
+
+  /** Job ID */
+  jobId: string;
+
+  /** User ID */
+  userId: string;
+
+  /** Job status */
+  status: JobStatus;
+
+  /** Job result (recipes) */
+  result?: Recipe[];
+
+  /** Error message (if FAILED) */
+  error?: string;
+
+  /** Job creation timestamp */
+  createdAt: number;
+
+  /** Job completion timestamp */
+  completedAt?: number;
+
+  /** TTL timestamp (7 days) */
+  ttl: number;
+}
+
+/**
+ * Common unit conversions to grams
+ * Used for nutrition calculation
+ *
+ * Note: These are approximate values for common ingredients
+ * Actual values may vary by ingredient density
+ */
+export const UNIT_TO_GRAMS: Record<string, number> = {
+  // Weight units (exact)
+  gram: 1,
+  g: 1,
+  kg: 1000,
+  kilogram: 1000,
+
+  // Volume units (approximate for water/milk density)
+  ml: 1,
+  milliliter: 1,
+  liter: 1000,
+  l: 1000,
+
+  // Spoon measurements (approximate)
+  tablespoon: 15, // 1 tablespoon ≈ 15ml ≈ 15g (for liquids)
+  tbsp: 15,
+  'thìa canh': 15,
+  'muỗng canh': 15,
+  muỗng: 15, // Default muỗng = muỗng canh
+  teaspoon: 5, // 1 teaspoon ≈ 5ml ≈ 5g (for liquids)
+  tsp: 5,
+  'thìa cà phê': 5,
+  'muỗng cà phê': 5,
+  'muỗng cà': 5, // Abbreviation for muỗng cà phê
+
+  // Cup measurements (approximate)
+  cup: 240, // 1 cup ≈ 240ml ≈ 240g (for liquids)
+  cốc: 240,
+  chén: 200, // Vietnamese rice bowl ≈ 200g
+
+  // Piece/count (very approximate, ingredient-dependent)
+  piece: 100, // Default: 1 piece ≈ 100g
+  miếng: 100,
+  cái: 100,
+  trái: 50, // Fruit/vegetable piece ≈ 50g (varies)
+  quả: 50,
+  củ: 100, // Root vegetable ≈ 100g
+  cây: 20, // Stalk (lemongrass, green onion) ≈ 20g
+  nhánh: 10, // Branch/sprig ≈ 10g
+  lá: 2, // Leaf ≈ 2g
+  tép: 5, // Clove (garlic) ≈ 5g
+  bó: 50, // Bunch ≈ 50g
+};
+
+/**
+ * Ingredient-specific unit conversions
+ * More accurate than generic conversions
+ *
+ * Format: { ingredient: { unit: gramsPerUnit } }
+ */
+export const INGREDIENT_UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
+  // Sugar (đường)
+  sugar: {
+    tablespoon: 12.5, // 1 tbsp sugar ≈ 12.5g
+    teaspoon: 4, // 1 tsp sugar ≈ 4g
+    muỗng: 12.5,
+    'muỗng canh': 12.5,
+    'muỗng cà': 4,
+    cup: 200, // 1 cup sugar ≈ 200g
+  },
+
+  // Salt (muối)
+  salt: {
+    tablespoon: 18, // 1 tbsp salt ≈ 18g
+    teaspoon: 6, // 1 tsp salt ≈ 6g
+    muỗng: 18,
+    'muỗng canh': 18,
+    'muỗng cà': 6,
+  },
+
+  // Fish sauce (nước mắm)
+  'fish-sauce': {
+    tablespoon: 18,
+    teaspoon: 6,
+    muỗng: 18,
+    'muỗng canh': 18,
+    'muỗng cà': 6,
+  },
+
+  // Shrimp paste (mắm ruốc)
+  'shrimp-paste': {
+    tablespoon: 15,
+    teaspoon: 5,
+    muỗng: 15,
+    'muỗng canh': 15,
+    'muỗng cà': 5,
+  },
+
+  // Tamarind (me chua)
+  tamarind: {
+    tablespoon: 15,
+    teaspoon: 5,
+    muỗng: 15,
+    'muỗng canh': 15,
+    'muỗng cà': 5,
+  },
+
+  // Lemongrass (sả)
+  lemongrass: {
+    cây: 20, // 1 stalk ≈ 20g
+    piece: 20,
+  },
+
+  // Chili (ớt)
+  chili: {
+    trái: 5, // 1 chili ≈ 5g
+    quả: 5,
+    piece: 5,
+  },
+
+  // Garlic (tỏi)
+  garlic: {
+    tép: 5, // 1 clove ≈ 5g
+    củ: 30, // 1 head ≈ 30g
+  },
+
+  // Shallot (hành tím)
+  shallot: {
+    củ: 30, // 1 shallot ≈ 30g
+  },
+
+  // Flour (bột mì)
+  flour: {
+    tablespoon: 8, // 1 tbsp flour ≈ 8g
+    teaspoon: 2.5, // 1 tsp flour ≈ 2.5g
+    muỗng: 8,
+    'muỗng canh': 8,
+    'muỗng cà': 2.5,
+    cup: 120, // 1 cup flour ≈ 120g
+  },
+
+  // Rice (gạo)
+  rice: {
+    cup: 185, // 1 cup uncooked rice ≈ 185g
+    chén: 150,
+  },
+
+  // Chicken breast (ức gà)
+  'chicken-breast': {
+    piece: 200, // 1 piece chicken breast ≈ 200g
+    miếng: 200,
+  },
+
+  // Pork belly (thịt ba rọi/ba chỉ)
+  'pork-belly': {
+    piece: 100,
+    miếng: 100,
+  },
+
+  // Egg (trứng)
+  egg: {
+    piece: 50, // 1 medium egg ≈ 50g
+    cái: 50,
+    quả: 50,
+    trái: 50,
+  },
+};

@@ -1,0 +1,63 @@
+{
+  "name": "everyonecook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Everyone Cook - Social Recipe Platform",
+  "workspaces": [
+    "frontend",
+    "infrastructure",
+    "services/*",
+    "shared"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "test:integration": "jest --config=jest.integration.config.js --runInBand",
+    "test:social": "ts-node tests/integration/social-workflow.integration.test.ts",
+    "test:custom-sections": "ts-node tests/integration/custom-sections.integration.test.ts",
+    "test:load": "jest --config=jest.load.config.js --runInBand --testTimeout=180000",
+    "test:perf": "jest --config=jest.perf.config.js --runInBand --testTimeout=300000",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
+    "type-check": "tsc --noEmit",
+    "setup": "node scripts/setup-dev-env.js",
+    "verify": "bash scripts/verify-all.sh",
+    "verify:win": "powershell scripts/verify-all.ps1",
+    "prepare": "husky install",
+    "deploy:dev": "cd infrastructure && cdk deploy --all --profile default --context environment=dev",
+    "deploy:staging": "cd infrastructure && cdk deploy --all --profile default --context environment=staging",
+    "deploy:prod": "cd infrastructure && cdk deploy --all --profile default --context environment=prod",
+    "cdk:synth": "cd infrastructure && cdk synth",
+    "cdk:diff": "cd infrastructure && cdk diff",
+    "cdk:bootstrap": "cd infrastructure && cdk bootstrap"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.940.0",
+    "@aws-sdk/client-dynamodb": "^3.940.0",
+    "@aws-sdk/lib-dynamodb": "^3.940.0",
+    "@types/axios": "^0.9.36",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "aws-cdk": "^2.114.0",
+    "aws-cdk-lib": "^2.114.0",
+    "axios": "^1.13.2",
+    "constructs": "^10.3.0",
+    "dotenv": "^17.2.3",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "husky": "^8.0.3",
+    "prettier": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=25.0.0",
+    "npm": ">=10.0.0"
+  }
+}

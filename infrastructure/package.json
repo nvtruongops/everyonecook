@@ -1,0 +1,30 @@
+{
+  "name": "@everyonecook/infrastructure",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS CDK Infrastructure for Everyone Cook",
+  "main": "bin/app.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "diff": "cdk diff",
+    "destroy": "cdk destroy",
+    "validate-config": "ts-node scripts/validate-config.ts",
+    "verify-cognito-authorizer": "ts-node scripts/verify-cognito-authorizer.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-route-53": "^3.933.0",
+    "@aws-sdk/credential-provider-node": "^3.700.0",
+    "aws-cdk-lib": "^2.114.0",
+    "constructs": "^10.3.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.5.4"
+  }
+}

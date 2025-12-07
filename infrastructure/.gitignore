@@ -1,0 +1,47 @@
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+# Build output
+dist/
+*.js
+*.d.ts
+!jest.config.js
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.secret
+*.key
+*.token
+*.pem
+keys/
+
+# CDK Context
+cdk.context.json
+
+# Temporary
+tmp/
+temp/
+*.tmp

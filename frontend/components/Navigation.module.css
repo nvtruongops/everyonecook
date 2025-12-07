@@ -1,0 +1,38 @@
+.profileDropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  width: 280px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(32, 61, 17, 0.1);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999;
+  text-align: center;
+}
+
+.profileDropdown.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+@media (min-width: 1024px) {
+  .profileDropdown {
+    width: 300px;
+  }
+}
+
+@media (max-width: 640px) {
+  .profileDropdown {
+    right: -0.5rem;
+    width: 260px;
+  }
+}
+
