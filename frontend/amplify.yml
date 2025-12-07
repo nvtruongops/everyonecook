@@ -6,7 +6,10 @@ frontend:
         - npm install --legacy-peer-deps
     build:
       commands:
-        - env | grep -e NEXT_PUBLIC_ >> .env.production
+        # Inject Amplify environment variables into .env.production
+        - env | grep -e NEXT_PUBLIC_ >> .env.production || true
+        - echo "Building for DEV environment..."
+        - echo "API_URL=$NEXT_PUBLIC_API_URL"
         - npm run build
   artifacts:
     baseDirectory: .next
@@ -30,11 +33,11 @@ customHeaders:
         value: '1; mode=block'
 
 customRules:
-  # Handle dynamic routes - rewrite all non-file requests to Next.js
+  # Handle dynamic routes [id] - rewrite non-file requests to Next.js
   - source: '</^[^.]+$|\.(?!(css|gif|ico|jpg|jpeg|js|json|png|txt|svg|woff|woff2|ttf|map|webp|avif)$)([^.]+$)/>'
     target: /index.html
     status: '200'
-  # Exclude static files from rewrite
+  # Preserve static assets
   - source: '/_next/<*>'
     target: '/_next/<*>'
     status: '200'
