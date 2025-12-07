@@ -25,7 +25,7 @@
     "setup": "node scripts/setup-dev-env.js",
     "verify": "bash scripts/verify-all.sh",
     "verify:win": "powershell scripts/verify-all.ps1",
-    "prepare": "husky install",
+
     "deploy:dev": "cd infrastructure && cdk deploy --all --profile default --context environment=dev",
     "deploy:staging": "cd infrastructure && cdk deploy --all --profile default --context environment=staging",
     "deploy:prod": "cd infrastructure && cdk deploy --all --profile default --context environment=prod",
@@ -51,7 +51,7 @@
     "eslint-plugin-import": "^2.29.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.1.1",
-    "husky": "^8.0.3",
+
     "prettier": "^3.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.0"

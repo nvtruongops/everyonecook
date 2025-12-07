@@ -1474,14 +1474,15 @@ export class CoreStack extends BaseStack {
     });
 
     // Export additional S3 buckets (Task 2.2.2)
+    // Note: logsBucket removed for cost optimization, using cdnLogsBucket for all logs
     new cdk.CfnOutput(this, 'LogsBucketName', {
-      value: this.logsBucket.bucketName,
+      value: this.cdnLogsBucket.bucketName,
       exportName: this.exportName('LogsBucketName'),
-      description: 'S3 logs bucket name for CloudWatch log archive',
+      description: 'S3 logs bucket name for CloudFront access logs',
     });
 
     new cdk.CfnOutput(this, 'LogsBucketArn', {
-      value: this.logsBucket.bucketArn,
+      value: this.cdnLogsBucket.bucketArn,
       exportName: this.exportName('LogsBucketArn'),
       description: 'S3 logs bucket ARN',
     });
