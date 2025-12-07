@@ -4,6 +4,7 @@ applications:
       phases:
         preBuild:
           commands:
+            - npm pkg delete scripts.prepare || true
             - npm install --legacy-peer-deps
         build:
           commands:
