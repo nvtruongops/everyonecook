@@ -17,6 +17,7 @@ import {
   SearchTrendingItem,
   PostTrendingItem,
 } from '@/services/trending';
+import { normalizeImageUrl } from '@/lib/image-utils';
 
 // Simple line chart component - larger and easier to read
 function SimpleLineChart({ 
@@ -325,15 +326,15 @@ function TrendingPostRow({ rank, post, onClick }: { rank: number; post: PostTren
       <div className={`w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-xs ${rankColors[Math.min(rank - 1, 3)]}`}>
         {rank}
       </div>
-      {post.authorAvatar ? (
-        <img src={post.authorAvatar} alt="" className="w-8 h-8 flex-shrink-0 rounded-full object-cover" />
+      {post.authorAvatar && normalizeImageUrl(post.authorAvatar) ? (
+        <img src={normalizeImageUrl(post.authorAvatar)!} alt="" className="w-8 h-8 flex-shrink-0 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : (
         <div className="w-8 h-8 flex-shrink-0 rounded-full bg-[#203d11] flex items-center justify-center text-white text-xs font-bold">
           {post.authorName?.[0]?.toUpperCase() || '?'}
         </div>
       )}
-      {post.image && (
-        <img src={post.image} alt="" className="w-10 h-10 flex-shrink-0 rounded-lg object-cover" />
+      {post.image && normalizeImageUrl(post.image) && (
+        <img src={normalizeImageUrl(post.image)!} alt="" className="w-10 h-10 flex-shrink-0 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       )}
       <div className="flex-1 min-w-0">
         <p className="text-xs text-[#203d11]/60">@{post.authorName}</p>

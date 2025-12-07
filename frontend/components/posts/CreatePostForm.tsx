@@ -209,7 +209,10 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
 
   // Handle recipe selection from picker modal
   const handleRecipeSelect = (recipe: any) => {
-    setRecipeId(recipe.saved_id || recipe.recipe_id || '');
+    // API returns recipeId, frontend may have saved_id or recipe_id
+    const id = recipe.recipeId || recipe.saved_id || recipe.recipe_id || '';
+    console.log('[CreatePostForm] Selected recipe:', { id, title: recipe.title, recipe });
+    setRecipeId(id);
     setRecipeTitle(recipe.title || '');
     setRecipeData({
       ...recipe,

@@ -12,6 +12,7 @@ import {
 } from '@/services/trending';
 import { Post } from '@/types/posts';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { normalizeImageUrl } from '@/lib/image-utils';
 import { BottomNav } from '@/components/mobile/MobileComponents';
 import { DashboardSkeleton } from '@/components/ui/LoadingSkeleton';
 import { usePostAvatarsPreload } from '@/hooks/useAvatarPreload';
@@ -233,11 +234,14 @@ function TrendingSection() {
                 >
                   {i + 1}
                 </div>
-                {post.image && (
+                {post.image && normalizeImageUrl(post.image) && (
                   <img
-                    src={post.image}
+                    src={normalizeImageUrl(post.image)!}
                     alt=""
                     className="w-10 h-10 flex-shrink-0 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
                 )}
                 <div className="flex-1 min-w-0">
