@@ -8,8 +8,12 @@ applications:
             - npm install --legacy-peer-deps --ignore-scripts
         build:
           commands:
-            - env | grep -e NEXT_PUBLIC_ >> .env.production || true
-            - echo "Building frontend for DEV environment..."
+            - echo "=== Creating .env.production from Amplify env vars ==="
+            - rm -f .env.production
+            - env | grep -e NEXT_PUBLIC_ > .env.production || true
+            - echo "=== .env.production content ==="
+            - cat .env.production
+            - echo "=== Building frontend ==="
             - npm run build
       artifacts:
         baseDirectory: .next

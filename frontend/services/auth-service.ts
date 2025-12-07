@@ -224,6 +224,13 @@ class AuthService {
         userId: userId,
       };
     } catch (error: any) {
+      // Debug: Log full error details
+      console.error('[AuthService] Registration error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        error: error,
+      });
       // User validation errors (expected) - log as warning
       if (
         error.name === 'UsernameExistsException' ||
