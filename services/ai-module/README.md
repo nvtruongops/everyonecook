@@ -8,7 +8,7 @@ The Recipe & AI Module handles AI-powered recipe suggestions and recipe manageme
 
 ### Core Features
 
-- **AI Recipe Suggestions**: Generate recipe suggestions based on available ingredients using AWS Bedrock (Claude 3.5 Sonnet v2)
+- **AI Recipe Suggestions**: Generate recipe suggestions based on available ingredients using AWS Bedrock (Claude 3 Haiku)
 - **Recipe Search**: Search recipes using DynamoDB GSI for full-text search
 - **Ingredient Translation**: Vietnamese ↔ English translation with Dictionary-first approach
 - **Nutrition Calculation**: Calculate nutritional information for recipes

@@ -1,0 +1,22 @@
+{
+  "name": "@everyonecook/image-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Image processing worker for Everyone Cook",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "npm run build && npm run package",
+    "package": "cp -r ../../../shared deployment/ && cp -r ../../../node_modules deployment/"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.940.0",
+    "@aws-sdk/client-dynamodb": "^3.940.0",
+    "@aws-sdk/lib-dynamodb": "^3.940.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.119",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}

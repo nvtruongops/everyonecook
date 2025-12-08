@@ -175,11 +175,11 @@ export class BackendStack extends BaseStack {
 
     // Task 5.1.3: Create Worker Lambda Functions (Event Layer)
     this.aiWorker = this.createAIWorker(props);
+    this.imageWorker = this.createImageWorker(props);
     // NOTE: Email/Notification workers integrated into existing modules:
     // - Email sending: Admin Module (ban user, delete post notifications)
     // - In-app notifications: Social Module (like, comment, friend request)
-    // TODO: Implement other workers when deployment folders are ready
-    // this.imageWorker = this.createImageWorker(props);
+    // TODO: Implement analytics worker when needed
     // this.analyticsWorker = this.createAnalyticsWorker(props);
 
     // Task 5.8: Create WAF WebACLs (Security Layer)
@@ -264,6 +264,20 @@ export class BackendStack extends BaseStack {
     cdk.Tags.of(queue).add('QueueType', 'Main');
     cdk.Tags.of(queue).add('Purpose', 'AI-Processing');
 
+    // Create CloudWatch alarm for queue depth
+    if (this.config.cloudwatch.alarms.enabled) {
+      new cdk.aws_cloudwatch.Alarm(this, 'AIQueueDepthAlarm', {
+        alarmName: `EveryoneCook-${this.config.environment}-AI-Queue-Depth`,
+        alarmDescription: 'Alert when AI Queue depth exceeds threshold (potential backlog)',
+        metric: queue.metricApproximateNumberOfMessagesVisible(),
+        threshold: 100, // Alert if more than 100 messages waiting
+        evaluationPeriods: 2,
+        comparisonOperator:
+          cdk.aws_cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cdk.aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
+
     return queue;
   }
 
@@ -295,6 +309,20 @@ export class BackendStack extends BaseStack {
     cdk.Tags.of(queue).add('Component', 'EventProcessing');
     cdk.Tags.of(queue).add('QueueType', 'Main');
     cdk.Tags.of(queue).add('Purpose', 'Image-Processing');
+
+    // Create CloudWatch alarm for queue depth
+    if (this.config.cloudwatch.alarms.enabled) {
+      new cdk.aws_cloudwatch.Alarm(this, 'ImageQueueDepthAlarm', {
+        alarmName: `EveryoneCook-${this.config.environment}-Image-Queue-Depth`,
+        alarmDescription: 'Alert when Image Queue depth exceeds threshold',
+        metric: queue.metricApproximateNumberOfMessagesVisible(),
+        threshold: 50, // Alert if more than 50 images waiting
+        evaluationPeriods: 2,
+        comparisonOperator:
+          cdk.aws_cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cdk.aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
 
     return queue;
   }
@@ -328,6 +356,20 @@ export class BackendStack extends BaseStack {
     cdk.Tags.of(queue).add('QueueType', 'Main');
     cdk.Tags.of(queue).add('Purpose', 'Analytics-Batch');
 
+    // Create CloudWatch alarm for queue depth
+    if (this.config.cloudwatch.alarms.enabled) {
+      new cdk.aws_cloudwatch.Alarm(this, 'AnalyticsQueueDepthAlarm', {
+        alarmName: `EveryoneCook-${this.config.environment}-Analytics-Queue-Depth`,
+        alarmDescription: 'Alert when Analytics Queue depth exceeds threshold',
+        metric: queue.metricApproximateNumberOfMessagesVisible(),
+        threshold: 200, // Alert if more than 200 analytics events waiting
+        evaluationPeriods: 2,
+        comparisonOperator:
+          cdk.aws_cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cdk.aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
+
     return queue;
   }
 
@@ -359,6 +401,20 @@ export class BackendStack extends BaseStack {
     cdk.Tags.of(queue).add('Component', 'EventProcessing');
     cdk.Tags.of(queue).add('QueueType', 'Main');
     cdk.Tags.of(queue).add('Purpose', 'Notification-Sending');
+
+    // Create CloudWatch alarm for queue depth
+    if (this.config.cloudwatch.alarms.enabled) {
+      new cdk.aws_cloudwatch.Alarm(this, 'NotificationQueueDepthAlarm', {
+        alarmName: `EveryoneCook-${this.config.environment}-Notification-Queue-Depth`,
+        alarmDescription: 'Alert when Notification Queue depth exceeds threshold',
+        metric: queue.metricApproximateNumberOfMessagesVisible(),
+        threshold: 500, // Alert if more than 500 notifications waiting
+        evaluationPeriods: 2,
+        comparisonOperator:
+          cdk.aws_cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cdk.aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
 
     return queue;
   }
@@ -2135,11 +2191,13 @@ export class BackendStack extends BaseStack {
       runtime: cdk.aws_lambda.Runtime.NODEJS_20_X,
       handler: 'index.handler',
       code: this.createLambdaCode('services/image-worker/deployment'),
+      layers: [this.sharedLayer.layer], // Use shared dependencies layer
       memorySize: 512,
       timeout: cdk.Duration.seconds(60),
       tracing: cdk.aws_lambda.Tracing.DISABLED,
       environment: {
         CONTENT_BUCKET: props.contentBucket.bucketName,
+        DYNAMODB_TABLE: props.dynamoTable.tableName,
         LOG_LEVEL: this.config.environment === 'prod' ? 'INFO' : 'DEBUG',
       },
       logGroup: logGroup,
@@ -2154,9 +2212,13 @@ export class BackendStack extends BaseStack {
 
     // Grant S3 permissions
     props.contentBucket.grantReadWrite(imageWorker);
+    
+    // Grant DynamoDB permissions
+    props.dynamoTable.grantReadWriteData(imageWorker);
 
     cdk.Tags.of(imageWorker).add('Component', 'EventProcessing');
     cdk.Tags.of(imageWorker).add('Module', 'ImageWorker');
+    cdk.Tags.of(imageWorker).add('Purpose', 'Image-Processing');
 
     return imageWorker;
   }

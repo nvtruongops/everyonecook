@@ -21,7 +21,7 @@ SQS AIQueue → AI Worker → Bedrock AI → AI Cache Service → DynamoDB
 **Responsibilities:**
 
 1. **Process SQS Messages**: Receive AI job messages from AIQueue
-2. **Generate Recipes**: Call Bedrock AI (Claude 3.5 Sonnet v2) to generate recipes
+2. **Generate Recipes**: Call Bedrock AI (Claude 3 Haiku) to generate recipes
 3. **Store in Cache**: Save results to AI Cache with:
    - Main cache entry with GSI2 fields (GSI2PK, GSI2SK, searchableText)
    - Ingredient indexes for GSI4 (one per ingredient)
