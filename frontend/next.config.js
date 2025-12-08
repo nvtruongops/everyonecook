@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Note: Removed 'standalone' output - let Amplify handle SSR natively
+  // Output mode for Amplify SSR deployment
+  output: 'standalone',
   // Performance optimizations
   poweredByHeader: false, // Remove X-Powered-By header
   compress: true, // Enable gzip compression
