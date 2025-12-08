@@ -1311,7 +1311,7 @@ export class PostService {
     };
 
     // Copy completed dish image
-    if (post.images.recipeImages?.completed) {
+    if (post.images?.recipeImages?.completed) {
       let sourceKey = post.images.recipeImages.completed;
       // Handle both https:// and non-https URLs
       if (sourceKey.startsWith('https://')) {
@@ -1333,7 +1333,7 @@ export class PostService {
     }
 
     // Copy step images
-    if (post.images.recipeImages?.steps && post.images.recipeImages.steps.length > 0) {
+    if (post.images?.recipeImages?.steps && post.images.recipeImages.steps.length > 0) {
       for (const step of post.images.recipeImages.steps) {
         const copiedStepImages: string[] = [];
 
