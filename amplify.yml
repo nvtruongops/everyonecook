@@ -1,0 +1,26 @@
+version: 1
+applications:
+  - frontend:
+      phases:
+        preBuild:
+          commands:
+            - export HUSKY=0
+            - npm install --legacy-peer-deps --ignore-scripts
+        build:
+          commands:
+            - echo "=== Creating .env.production from Amplify env vars ==="
+            - rm -f .env.production
+            - env | grep -e NEXT_PUBLIC_ > .env.production || true
+            - echo "=== .env.production content ==="
+            - cat .env.production
+            - echo "=== Building frontend ==="
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
+    appRoot: frontend
