@@ -48,6 +48,16 @@ const CONTENT_BUCKET = process.env.CONTENT_BUCKET || 'everyonecook-content-dev';
 const CDN_DOMAIN = process.env.CDN_DOMAIN || 'cdn-dev.everyonecook.cloud';
 
 /**
+ * Extract S3 key from CDN URL (handles multiple CDN domains)
+ */
+const extractS3KeyFromUrl = (url: string): string => {
+  if (!url) return url;
+  return url
+    .replace(/^https?:\/\/cdn(-dev)?\.everyonecook\.cloud\//, '')
+    .replace(/^cdn(-dev)?\.everyonecook\.cloud\//, '');
+};
+
+/**
  * Post Service Class
  */
 export class PostService {
@@ -780,11 +790,7 @@ export class PostService {
     if (recipe.images?.completed) {
       try {
         // Handle both CDN URL and S3 key formats
-        let sourceKey = recipe.images.completed;
-        if (sourceKey.startsWith('https://')) {
-          // Extract key from CDN URL
-          sourceKey = sourceKey.replace(`https://${CDN_DOMAIN}/`, '');
-        }
+        const sourceKey = extractS3KeyFromUrl(recipe.images.completed);
         const destKey = `posts/${postId}/recipe-completed.jpg`;
 
         await s3Client.send(
@@ -832,10 +838,7 @@ export class PostService {
 
       for (let imgIndex = 0; imgIndex < Math.min(stepImages.length, 3); imgIndex++) {
         try {
-          let sourceKey = stepImages[imgIndex];
-          if (sourceKey.startsWith('https://')) {
-            sourceKey = sourceKey.replace(`https://${CDN_DOMAIN}/`, '');
-          }
+          const sourceKey = extractS3KeyFromUrl(stepImages[imgIndex]);
           const destKey = `posts/${postId}/recipe-step-${stepNumber}-${imgIndex + 1}.jpg`;
 
           await s3Client.send(
@@ -1312,13 +1315,7 @@ export class PostService {
 
     // Copy completed dish image
     if (post.images?.recipeImages?.completed) {
-      let sourceKey = post.images.recipeImages.completed;
-      // Handle both https:// and non-https URLs
-      if (sourceKey.startsWith('https://')) {
-        sourceKey = sourceKey.replace(`https://${CDN_DOMAIN}/`, '');
-      } else {
-        sourceKey = sourceKey.replace(`${CDN_DOMAIN}/`, '');
-      }
+      const sourceKey = extractS3KeyFromUrl(post.images.recipeImages.completed);
       const destKey = `recipes/${username}/${recipeId}/completed.jpg`;
 
       await s3Client.send(
@@ -1338,13 +1335,7 @@ export class PostService {
         const copiedStepImages: string[] = [];
 
         for (let imgIndex = 0; imgIndex < step.images.length; imgIndex++) {
-          let sourceKey = step.images[imgIndex];
-          // Handle both https:// and non-https URLs
-          if (sourceKey.startsWith('https://')) {
-            sourceKey = sourceKey.replace(`https://${CDN_DOMAIN}/`, '');
-          } else {
-            sourceKey = sourceKey.replace(`${CDN_DOMAIN}/`, '');
-          }
+          const sourceKey = extractS3KeyFromUrl(step.images[imgIndex]);
           const destKey = `recipes/${username}/${recipeId}/step-${step.stepNumber}-${imgIndex + 1}.jpg`;
 
           await s3Client.send(
