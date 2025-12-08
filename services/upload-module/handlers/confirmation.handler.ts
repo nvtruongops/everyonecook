@@ -30,7 +30,7 @@ const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'ap-southeas
 
 // Helper functions to get environment variables (allows for testing)
 const getContentBucket = () => process.env.CONTENT_BUCKET || '';
-const getCdnDomain = () => process.env.CDN_DOMAIN || 'cdn.everyonecook.cloud';
+const getCdnDomain = () => process.env.CDN_DOMAIN || 'cdn-dev.everyonecook.cloud';
 const getDynamoTable = () => process.env.DYNAMODB_TABLE || 'EveryoneCook';
 const getImageProcessingQueueUrl = () => process.env.IMAGE_PROCESSING_QUEUE_URL || '';
 

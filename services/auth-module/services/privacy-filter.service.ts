@@ -39,13 +39,13 @@ import { PrivacySettings, PrivacyLevel, RelationshipType } from '../models/priva
  * Default avatar URL for private avatars
  * This is a public default image (not in private S3 bucket)
  */
-const DEFAULT_AVATAR_URL = 'https://cdn.everyonecook.cloud/defaults/avatar.png';
+const DEFAULT_AVATAR_URL = 'https://cdn-dev.everyonecook.cloud/defaults/avatar.png';
 
 /**
  * Default background URL for private backgrounds
  * This is a public default image (not in private S3 bucket)
  */
-const DEFAULT_BACKGROUND_URL = 'https://cdn.everyonecook.cloud/defaults/background.png';
+const DEFAULT_BACKGROUND_URL = 'https://cdn-dev.everyonecook.cloud/defaults/background.png';
 
 /**
  * Filter user profile based on privacy settings and relationship

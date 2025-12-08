@@ -18,7 +18,7 @@ const s3Client = new S3Client({
 
 // Environment variables
 const CONTENT_BUCKET = process.env.CONTENT_BUCKET || '';
-const CDN_DOMAIN = process.env.CDN_DOMAIN || 'cdn.everyonecook.cloud';
+const CDN_DOMAIN = process.env.CDN_DOMAIN || 'cdn-dev.everyonecook.cloud';
 
 /**
  * File type configuration
