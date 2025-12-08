@@ -1266,7 +1266,23 @@ export class PostService {
       })
     );
 
-    // 11. Update post analytics (importCount)
+    // 11. Update user profile recipeIds array (for fast query)
+    await docClient.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `USER#${username}`,
+          SK: 'PROFILE',
+        },
+        UpdateExpression: 'SET recipeIds = list_append(if_not_exists(recipeIds, :empty), :newId)',
+        ExpressionAttributeValues: {
+          ':empty': [],
+          ':newId': [newRecipeId],
+        },
+      })
+    );
+
+    // 12. Update post analytics (importCount)
     await docClient.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
@@ -1281,7 +1297,7 @@ export class PostService {
       })
     );
 
-    // 12. Log for monitoring
+    // 13. Log for monitoring
     console.log('Recipe saved from post', {
       postId,
       recipeId: newRecipeId,
