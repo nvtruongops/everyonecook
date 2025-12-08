@@ -1,7 +1,7 @@
 // Enable dynamic rendering for SSR
 export const dynamic = 'force-dynamic';
 
-export default function UserLayout({
+export default function RecipeLayout({
   children,
 }: {
   children: React.ReactNode
