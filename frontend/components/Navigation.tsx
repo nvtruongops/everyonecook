@@ -173,13 +173,24 @@ export default function Navigation() {
         </div>
 
         {mobileOpen && (
-          <div className="lg:hidden pb-4 space-y-1 border-t border-[#203d11]/10 pt-3">
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href} className={`block ${navClass(item.href)}`}>
-                {item.label}
-              </Link>
-            ))}
-          </div>
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/20 z-[-1]" 
+              onClick={() => setMobileOpen(false)}
+            />
+            <div className="lg:hidden pb-4 space-y-1 border-t border-[#203d11]/10 pt-3 mobile-menu-enter">
+              {navItems.map((item) => (
+                <Link 
+                  key={item.href} 
+                  href={item.href} 
+                  className={`block ${navClass(item.href)}`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </nav>

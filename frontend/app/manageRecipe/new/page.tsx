@@ -11,10 +11,16 @@ interface Ingredient {
   amount: string;
 }
 
+interface ImageData {
+  buffer: ArrayBuffer;
+  type: string;
+  name: string;
+}
+
 interface Instruction {
   stepNumber: number;
   description: string;
-  imageFiles: File[];
+  imageFiles: ImageData[];
   imagePreviews: string[];
 }
 
@@ -35,7 +41,7 @@ function CreateRecipeContent() {
   const [servings, setServings] = useState(2);
   const [cookTime, setCookTime] = useState(30);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
-  const [completedImageFile, setCompletedImageFile] = useState<File | null>(null);
+  const [completedImageData, setCompletedImageData] = useState<ImageData | null>(null);
   const [completedImagePreview, setCompletedImagePreview] = useState<string>('');
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ vietnamese: '', amount: '' }]);
   const [instructions, setInstructions] = useState<Instruction[]>([
@@ -51,23 +57,26 @@ function CreateRecipeContent() {
     setTimeout(() => setToast(null), 3000); // Auto hide after 3s
   };
 
-  // Completed image handler
-  const handleCompletedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Completed image handler - read file immediately to prevent reference loss
+  const handleCompletedImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         showToast('Ảnh không được vượt quá 5MB', 'warning');
         return;
       }
-      setCompletedImageFile(file);
+      // Read file into ArrayBuffer immediately
+      const buffer = await file.arrayBuffer();
+      setCompletedImageData({ buffer, type: file.type, name: file.name });
+      
       const reader = new FileReader();
       reader.onloadend = () => setCompletedImagePreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  // Step image handlers
-  const handleStepImageChange = (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Step image handlers - read files immediately to prevent reference loss
+  const handleStepImageChange = async (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -81,25 +90,32 @@ function CreateRecipeContent() {
 
     const filesToProcess = Array.from(files).slice(0, remainingSlots);
 
-    filesToProcess.forEach((file) => {
+    for (const file of filesToProcess) {
       if (file.size > 5 * 1024 * 1024) {
         showToast(`Ảnh ${file.name} vượt quá 5MB`, 'warning');
-        return;
+        continue;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setInstructions((prev) => {
-          const updated = [...prev];
-          updated[stepIndex] = {
-            ...updated[stepIndex],
-            imageFiles: [...updated[stepIndex].imageFiles, file],
-            imagePreviews: [...updated[stepIndex].imagePreviews, reader.result as string],
-          };
-          return updated;
-        });
-      };
-      reader.readAsDataURL(file);
-    });
+      // Read file into ArrayBuffer immediately
+      const buffer = await file.arrayBuffer();
+      const imageData: ImageData = { buffer, type: file.type, name: file.name };
+      
+      // Create preview
+      const preview = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      setInstructions((prev) => {
+        const updated = [...prev];
+        updated[stepIndex] = {
+          ...updated[stepIndex],
+          imageFiles: [...updated[stepIndex].imageFiles, imageData],
+          imagePreviews: [...updated[stepIndex].imagePreviews, preview],
+        };
+        return updated;
+      });
+    }
   };
 
   const removeStepImage = (stepIndex: number, imageIndex: number) => {
@@ -156,13 +172,16 @@ function CreateRecipeContent() {
 
   // Upload image to S3 using presigned URL
   const uploadImageToS3 = async (
-    file: File,
+    imageData: ImageData,
     recipeId: string,
     imageType: 'completed' | 'step',
     stepIndex?: number
   ): Promise<string> => {
+    // Create Blob from pre-loaded ArrayBuffer
+    const fileBlob = new Blob([imageData.buffer], { type: imageData.type });
+
     // Use simple filename - backend will add timestamp for uniqueness
-    const extension = file.name.split('.').pop() || 'jpg';
+    const extension = imageData.name.split('.').pop() || 'jpg';
     const fileName = `${imageType}${stepIndex !== undefined ? `-step${stepIndex}` : ''}.${extension}`;
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-dev.everyonecook.cloud';
@@ -175,8 +194,8 @@ function CreateRecipeContent() {
       body: JSON.stringify({
         fileType: 'recipe',
         fileName,
-        contentType: file.type,
-        fileSize: file.size,
+        contentType: imageData.type,
+        fileSize: imageData.buffer.byteLength,
         subFolder: recipeId,
       }),
     });
@@ -190,8 +209,8 @@ function CreateRecipeContent() {
 
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
+      headers: { 'Content-Type': imageData.type },
+      body: fileBlob,
     });
 
     if (!uploadResponse.ok) {
@@ -279,14 +298,14 @@ function CreateRecipeContent() {
       let completedImageUrl = '';
       const stepImageUrls: string[][] = validInstructions.map(() => []);
       const hasImages =
-        completedImageFile || validInstructions.some((inst) => inst.imageFiles.length > 0);
+        completedImageData || validInstructions.some((inst) => inst.imageFiles.length > 0);
 
       if (hasImages) {
         setUploadProgress('Đang tải ảnh lên...');
 
-        if (completedImageFile) {
+        if (completedImageData) {
           setUploadProgress('Đang tải ảnh món hoàn thành...');
-          completedImageUrl = await uploadImageToS3(completedImageFile, recipeId, 'completed');
+          completedImageUrl = await uploadImageToS3(completedImageData, recipeId, 'completed');
         }
 
         for (let i = 0; i < validInstructions.length; i++) {
@@ -335,7 +354,16 @@ function CreateRecipeContent() {
       // Delay redirect to show toast
       setTimeout(() => router.push('/manageRecipe'), 1500);
     } catch (error) {
-      showToast('Lỗi: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let displayMessage = errorMessage;
+      
+      if (errorMessage.includes('Upload limit exceeded') || errorMessage.includes('RATE_LIMIT') || errorMessage.includes('429')) {
+        displayMessage = 'Đã vượt quá giới hạn upload (50 ảnh/ngày). Vui lòng thử lại vào ngày mai.';
+      } else if (errorMessage.includes('UNAUTHORIZED') || errorMessage.includes('401')) {
+        displayMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+      }
+      
+      showToast(displayMessage, 'error');
     } finally {
       setLoading(false);
       setUploadProgress('');
@@ -486,7 +514,7 @@ function CreateRecipeContent() {
                     <button
                       type="button"
                       onClick={() => {
-                        setCompletedImageFile(null);
+                        setCompletedImageData(null);
                         setCompletedImagePreview('');
                       }}
                       className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 font-medium text-sm"
@@ -556,12 +584,12 @@ function CreateRecipeContent() {
                 </div>
               </div>
             </div>
-            <div className="p-6">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-stone-50 rounded-xl p-4 text-center">
-                  <div className="w-10 h-10 bg-[#203d11]/10 rounded-full flex items-center justify-center mx-auto mb-2">
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="bg-stone-50 rounded-xl p-3 sm:p-4 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#203d11]/10 rounded-full flex items-center justify-center mb-1.5 sm:mb-2">
                     <svg
-                      className="w-5 h-5 text-[#203d11]"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-[#203d11]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -574,20 +602,20 @@ function CreateRecipeContent() {
                       />
                     </svg>
                   </div>
-                  <label className="block text-xs font-medium text-stone-500 mb-2">Khẩu phần</label>
+                  <label className="text-[10px] sm:text-xs font-medium text-stone-500 mb-1.5 sm:mb-2">Khẩu phần</label>
                   <input
                     type="number"
                     value={servings}
                     onChange={(e) => setServings(parseInt(e.target.value) || 1)}
                     min={1}
                     max={20}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 text-center font-medium"
+                    className="w-full px-2 sm:px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 text-center font-medium text-sm"
                   />
                 </div>
-                <div className="bg-stone-50 rounded-xl p-4 text-center">
-                  <div className="w-10 h-10 bg-[#975b1d]/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                <div className="bg-stone-50 rounded-xl p-3 sm:p-4 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#975b1d]/10 rounded-full flex items-center justify-center mb-1.5 sm:mb-2">
                     <svg
-                      className="w-5 h-5 text-[#975b1d]"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-[#975b1d]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -600,21 +628,19 @@ function CreateRecipeContent() {
                       />
                     </svg>
                   </div>
-                  <label className="block text-xs font-medium text-stone-500 mb-2">
-                    Thời gian (phút)
-                  </label>
+                  <label className="text-[10px] sm:text-xs font-medium text-stone-500 mb-1.5 sm:mb-2">Thời gian</label>
                   <input
                     type="number"
                     value={cookTime}
                     onChange={(e) => setCookTime(parseInt(e.target.value) || 0)}
                     min={0}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 text-center font-medium"
+                    className="w-full px-2 sm:px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 text-center font-medium text-sm"
                   />
                 </div>
-                <div className="bg-stone-50 rounded-xl p-4 text-center">
-                  <div className="w-10 h-10 bg-[#203d11]/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                <div className="bg-stone-50 rounded-xl p-3 sm:p-4 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#203d11]/10 rounded-full flex items-center justify-center mb-1.5 sm:mb-2">
                     <svg
-                      className="w-5 h-5 text-[#203d11]"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-[#203d11]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -627,14 +653,14 @@ function CreateRecipeContent() {
                       />
                     </svg>
                   </div>
-                  <label className="block text-xs font-medium text-stone-500 mb-2">Độ khó</label>
+                  <label className="text-[10px] sm:text-xs font-medium text-stone-500 mb-1.5 sm:mb-2">Độ khó</label>
                   <select
                     value={difficulty}
                     onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
-                    className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 text-center font-medium bg-white"
+                    className="w-full px-1 sm:px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 text-center font-medium bg-white text-sm"
                   >
                     <option value="easy">Dễ</option>
-                    <option value="medium">Trung bình</option>
+                    <option value="medium">TB</option>
                     <option value="hard">Khó</option>
                   </select>
                 </div>
@@ -689,7 +715,7 @@ function CreateRecipeContent() {
             <div className="p-6">
               <div className="space-y-3">
                 {ingredients.map((ing, index) => (
-                  <div key={index} className="flex items-center gap-3 group">
+                  <div key={index} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 group">
                     <div className="w-8 h-8 bg-[#203d11]/10 rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-xs font-bold text-[#203d11]">{index + 1}</span>
                     </div>
@@ -698,20 +724,20 @@ function CreateRecipeContent() {
                       value={ing.vietnamese}
                       onChange={(e) => updateIngredient(index, 'vietnamese', e.target.value)}
                       placeholder="Tên nguyên liệu"
-                      className="flex-1 px-4 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 placeholder:text-stone-400 transition-all"
+                      className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 placeholder:text-stone-400 transition-all text-sm sm:text-base"
                     />
                     <input
                       type="text"
                       value={ing.amount}
                       onChange={(e) => updateIngredient(index, 'amount', e.target.value)}
                       placeholder="500g"
-                      className="w-28 px-4 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 placeholder:text-stone-400 text-center transition-all"
+                      className="w-20 sm:w-28 px-2 sm:px-4 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#203d11]/20 focus:border-[#203d11] text-stone-900 placeholder:text-stone-400 text-center transition-all text-sm sm:text-base"
                     />
                     {ingredients.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeIngredient(index)}
-                        className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       >
                         <svg
                           className="w-5 h-5"
@@ -889,13 +915,13 @@ function CreateRecipeContent() {
           </div>
 
           {/* Submit Buttons */}
-          <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(32,61,17,0.08)] border border-stone-100 p-6">
-            <div className="flex gap-4">
+          <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(32,61,17,0.08)] border border-stone-100 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => router.push('/manageRecipe')}
                 disabled={loading}
-                className="flex-1 px-6 py-3.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="order-2 sm:order-1 sm:flex-1 px-4 sm:px-6 py-3 sm:py-3.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
@@ -910,12 +936,12 @@ function CreateRecipeContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-[2] px-6 py-3.5 bg-gradient-to-r from-[#203d11] to-[#2a5016] text-white rounded-xl hover:from-[#2a4f16] hover:to-[#356019] font-medium shadow-lg shadow-[#203d11]/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="order-1 sm:order-2 sm:flex-[2] px-4 sm:px-6 py-3 sm:py-3.5 bg-gradient-to-r from-[#203d11] to-[#2a5016] text-white rounded-xl hover:from-[#2a4f16] hover:to-[#356019] font-medium shadow-lg shadow-[#203d11]/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    <span>{uploadProgress || 'Đang tạo...'}</span>
+                    <span className="text-sm sm:text-base">{uploadProgress || 'Đang tạo...'}</span>
                   </>
                 ) : (
                   <>
@@ -938,7 +964,7 @@ function CreateRecipeContent() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 animate-in slide-in-from-bottom-4 safe-area-bottom">
           <div
             className={`px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 ${
               toast.type === 'success'

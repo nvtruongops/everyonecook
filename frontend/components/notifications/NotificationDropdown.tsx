@@ -19,8 +19,17 @@ export default function NotificationDropdown() {
   const [loading, setLoading] = useState(false);
   const [nextToken, setNextToken] = useState<string>();
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Check mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const load = useCallback(
     async (more = false) => {
@@ -128,16 +137,18 @@ export default function NotificationDropdown() {
       </button>
       {isOpen && (
         <div
-          className="fixed w-96 bg-white rounded-2xl shadow-xl border border-[#203d11]/10 overflow-hidden flex flex-col"
+          className="fixed bg-white rounded-2xl shadow-xl border border-[#203d11]/10 overflow-hidden flex flex-col"
           style={{
             zIndex: 99999,
-            right: buttonRef.current
+            width: isMobile ? 'calc(100vw - 16px)' : '384px',
+            right: isMobile ? '8px' : buttonRef.current
               ? `${window.innerWidth - buttonRef.current.getBoundingClientRect().right}px`
-              : '0',
+              : '8px',
+            left: isMobile ? '8px' : 'auto',
             top: buttonRef.current
               ? `${buttonRef.current.getBoundingClientRect().bottom + 8}px`
-              : '0',
-            maxHeight: '520px',
+              : '64px',
+            maxHeight: isMobile ? 'calc(100vh - 140px)' : '520px',
           }}
         >
           <div className="px-4 py-3 border-b border-[#203d11]/10 flex items-center justify-between bg-[#f5f0e8]/50">

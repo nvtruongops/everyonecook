@@ -18,11 +18,35 @@ import CachedAvatar from '@/components/ui/CachedAvatar';
 import RecipePickerModal from './RecipePickerModal';
 import { normalizeImageUrl } from '@/lib/image-utils';
 
-// Privacy options for custom dropdown
+// Privacy options for custom dropdown with SVG icons
 const PRIVACY_OPTIONS = [
-  { value: 'public', label: 'Công khai', icon: 'P' },
-  { value: 'friends', label: 'Bạn bè', icon: 'F' },
-  { value: 'private', label: 'Riêng tư', icon: 'R' },
+  { 
+    value: 'public', 
+    label: 'Công khai', 
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" />
+      </svg>
+    )
+  },
+  { 
+    value: 'friends', 
+    label: 'Bạn bè', 
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+      </svg>
+    )
+  },
+  { 
+    value: 'private', 
+    label: 'Riêng tư', 
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+      </svg>
+    )
+  },
 ] as const;
 
 interface CreatePostFormProps {
@@ -620,9 +644,9 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex items-center justify-between border-t pt-3">
-          <div className="flex items-center gap-1">
+        {/* Actions - Responsive for mobile */}
+        <div className="flex items-center justify-between border-t pt-3 gap-2">
+          <div className="flex items-center gap-1 flex-shrink min-w-0">
             {/* Image Upload Button - Hidden when recipe is attached */}
             {!recipeTitle && (
               <>
@@ -637,7 +661,7 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm font-medium"
+                  className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-sm font-medium"
                   title="Thêm ảnh"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -648,37 +672,42 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  <span className="hidden sm:inline">Ảnh</span>
                 </button>
               </>
             )}
 
-            {/* Recipe Picker Button */}
-            <button
-              type="button"
-              onClick={() => setShowRecipePicker(true)}
-              disabled={!!recipeTitle}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition text-sm font-medium ${
-                recipeTitle
-                  ? 'text-[#203d11]/40 cursor-not-allowed'
-                  : 'text-[#203d11] hover:bg-[#f5f0e8]'
-              }`}
-              title={recipeTitle ? 'Đã chọn món ăn' : 'Chọn món ăn để đăng'}
-            >
-              <span className="hidden sm:inline">Đăng với món ăn</span>
-            </button>
+            {/* Share Recipe Button - Hidden when recipe is already attached */}
+            {!recipeTitle && (
+              <button
+                type="button"
+                onClick={() => setShowRecipePicker(true)}
+                className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 text-[#975b1d] hover:bg-[#f5f0e8] rounded-lg transition text-sm font-medium"
+                title="Chia sẻ món ăn"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Chia sẻ món</span>
+              </button>
+            )}
 
-            {/* Privacy Selector - Custom Dropdown */}
+            {/* Privacy Selector - Custom Dropdown with better mobile UX */}
             <div className="relative" ref={privacyDropdownRef}>
               <button
                 type="button"
                 onClick={() => setShowPrivacyDropdown(!showPrivacyDropdown)}
-                className="flex items-center gap-2 pl-3 pr-2 py-1.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:pl-3 sm:pr-2 py-1.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#203d11]/30 focus:border-[#203d11] text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition cursor-pointer"
+                title={PRIVACY_OPTIONS.find((o) => o.value === privacy)?.label}
               >
-                <span>{PRIVACY_OPTIONS.find((o) => o.value === privacy)?.icon}</span>
-                <span>{PRIVACY_OPTIONS.find((o) => o.value === privacy)?.label}</span>
+                <span className="text-[#203d11]">{PRIVACY_OPTIONS.find((o) => o.value === privacy)?.icon}</span>
+                <span className="hidden xs:inline sm:inline">{PRIVACY_OPTIONS.find((o) => o.value === privacy)?.label}</span>
                 <svg
-                  className={`w-4 h-4 text-gray-500 transition-transform ${showPrivacyDropdown ? 'rotate-180' : ''}`}
+                  className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 transition-transform ${showPrivacyDropdown ? 'rotate-180' : ''}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -694,7 +723,7 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
 
               {/* Custom Dropdown Menu */}
               {showPrivacyDropdown && (
-                <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50 min-w-[140px]">
+                <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50 min-w-[150px]">
                   {PRIVACY_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -703,13 +732,13 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
                         setPrivacy(option.value);
                         setShowPrivacyDropdown(false);
                       }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[#f5f0e8] transition ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#f5f0e8] transition ${
                         privacy === option.value
                           ? 'bg-[#f5f0e8] text-[#203d11] font-medium'
                           : 'text-[#203d11]/70'
                       }`}
                     >
-                      <span>{option.icon}</span>
+                      <span className="text-[#203d11]">{option.icon}</span>
                       <span>{option.label}</span>
                       {privacy === option.value && (
                         <svg
@@ -733,11 +762,11 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
             </div>
           </div>
 
-          {/* Submit Button - Always require content/title */}
+          {/* Submit Button - Responsive */}
           <button
             type="submit"
             disabled={loading || !content.trim()}
-            className="px-8 py-2.5 bg-[#203d11] text-white rounded-xl hover:bg-[#2a5016] transition-all font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md"
+            className="px-4 sm:px-6 py-2 sm:py-2.5 bg-[#203d11] text-white rounded-xl hover:bg-[#2a5016] transition-all font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md text-sm sm:text-base flex-shrink-0"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -756,7 +785,7 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                Posting...
+                <span className="hidden sm:inline">Posting...</span>
               </span>
             ) : (
               'Đăng bài'

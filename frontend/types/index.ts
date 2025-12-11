@@ -83,11 +83,20 @@ export interface Post {
 
 export interface Comment {
   commentId: string;
+  comment_id: string; // API format (snake_case)
+  id?: string; // Alternative ID field
   postId: string;
   authorId: string;
+  user_id?: string; // API format
   author?: User;
   content: string;
+  text?: string; // API format
+  username?: string; // Author username
+  avatar_url?: string; // Author avatar
+  reply_count?: number; // Number of replies
+  parent_comment_id?: string; // Parent comment ID for replies
   createdAt: number;
+  created_at?: string; // API format
   updatedAt: number;
 }
 

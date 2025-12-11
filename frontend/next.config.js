@@ -35,6 +35,14 @@ const nextConfig = {
     deviceSizes: [640, 750, 800, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 512, 800],
     qualities: [75, 90, 100], // Configure allowed quality values
+    // Disable LCP warning in development (dynamic content makes it hard to predict LCP)
+    dangerouslyAllowSVG: false,
+    unoptimized: false,
+  },
+  // Compiler options
+  compiler: {
+    // Remove console.log in production
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
   // Optimize production bundle
   experimental: {

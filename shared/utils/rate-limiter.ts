@@ -145,15 +145,15 @@ export const RATE_LIMITS = {
   },
   RECIPE_IMAGE_UPLOAD: {
     operation: 'recipe_image_upload',
-    maxAttempts: 10,
+    maxAttempts: 50,
     windowSeconds: 86400, // 1 day
   },
 
   // Social Module
   POST_CREATE: {
     operation: 'post_create',
-    maxAttempts: 20,
-    windowSeconds: 86400, // 1 day
+    maxAttempts: 10,
+    windowSeconds: 600, // 10 minutes
   },
   COMMENT_CREATE: {
     operation: 'comment_create',

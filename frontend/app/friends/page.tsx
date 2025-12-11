@@ -114,14 +114,14 @@ function FriendsPageContent() {
           <h1 className="text-3xl sm:text-4xl font-bold text-[#203d11] mb-2">Bạn bè</h1>
           <p className="text-[#203d11]/70 font-medium">Quản lý tình bạn và kết nối với người khác</p>
         </div>
-        <div className="mb-6 bg-white/70 backdrop-blur-xl rounded-2xl border border-[#203d11]/5 p-1.5 shadow-xl">
-          <nav className="flex space-x-2 overflow-x-auto">
+        <div className="mb-6 bg-white/70 backdrop-blur-xl rounded-2xl border border-[#203d11]/5 p-1 sm:p-1.5 shadow-xl overflow-hidden">
+          <nav className="flex space-x-1 sm:space-x-2 overflow-x-auto scrollbar-hide pb-1 -mb-1">
             {tabs.map((t) => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
-                className={`py-3 px-4 rounded-xl font-semibold text-sm whitespace-nowrap transition-all ${activeTab === t.key ? 'bg-white text-[#203d11] shadow-sm border border-[#203d11]/10' : 'text-[#203d11]/60 hover:text-[#203d11] hover:bg-white/40'}`}>
+                className={`py-2 sm:py-3 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === t.key ? 'bg-white text-[#203d11] shadow-sm border border-[#203d11]/10' : 'text-[#203d11]/60 hover:text-[#203d11] hover:bg-white/40'}`}>
                 {t.label}
                 {t.count !== undefined && t.count > 0 && (
-                  <span className="ml-2 bg-[#203d11]/10 text-[#203d11] py-0.5 px-2 rounded-full text-xs font-bold">{t.count}</span>
+                  <span className="ml-1 sm:ml-2 bg-[#203d11]/10 text-[#203d11] py-0.5 px-1.5 sm:px-2 rounded-full text-[10px] sm:text-xs font-bold">{t.count}</span>
                 )}
               </button>
             ))}

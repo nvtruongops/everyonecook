@@ -1,8 +1,17 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AvatarCacheProvider } from '@/contexts/AvatarCacheContext';
 import AppLayout from '@/components/AppLayout';
+import SuppressWarnings from '@/components/SuppressWarnings';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: 'Everyone Cook',
@@ -23,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="antialiased" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <SuppressWarnings />
         <AvatarCacheProvider>
           <AuthProvider>
             <AppLayout>{children}</AppLayout>

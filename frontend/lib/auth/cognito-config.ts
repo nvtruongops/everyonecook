@@ -12,15 +12,12 @@ export const configureCognito = () => {
 
   const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
   const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
-
-  // Debug: Log env variables (remove in production)
-  console.log('[Cognito Config] userPoolId:', userPoolId ? 'SET' : 'MISSING');
-  console.log('[Cognito Config] userPoolClientId:', userPoolClientId ? 'SET' : 'MISSING');
+  const isDev = process.env.NODE_ENV === 'development';
 
   if (!userPoolId || !userPoolClientId) {
-    console.error('[Cognito Config] Missing required environment variables!');
-    console.error('NEXT_PUBLIC_COGNITO_USER_POOL_ID:', userPoolId);
-    console.error('NEXT_PUBLIC_COGNITO_CLIENT_ID:', userPoolClientId);
+    if (isDev) {
+      console.error('[Cognito Config] Missing required environment variables!');
+    }
     return;
   }
 
@@ -43,7 +40,6 @@ export const configureCognito = () => {
     );
 
     isConfigured = true;
-    console.log('[Cognito Config] Configured successfully');
   } catch (error) {
     console.error('Failed to configure Cognito:', error);
   }

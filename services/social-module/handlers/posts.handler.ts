@@ -16,6 +16,7 @@ import {
   PostUpdateData,
   SharePostData,
 } from '../models/post.model';
+import { checkRateLimit, RATE_LIMITS } from '../../../shared/utils/rate-limiter';
 
 // S3 client for presigned URLs
 const s3Client = new S3Client({
@@ -105,6 +106,16 @@ function getUserId(event: APIGatewayProxyEvent): string {
 export async function createQuickPost(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     const userId = getUserId(event);
+
+    // Check rate limit: 10 posts per 10 minutes
+    const isRateLimited = await checkRateLimit(userId, RATE_LIMITS.POST_CREATE);
+    if (isRateLimited) {
+      return createResponse(429, {
+        error: 'Bạn đã đăng quá nhiều bài. Vui lòng thử lại sau 10 phút.',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    }
+
     const body = JSON.parse(event.body || '{}');
 
     // Support both field names for backward compatibility
@@ -171,6 +182,16 @@ export async function shareRecipeAsPost(
   try {
     // Use Cognito sub as authorId for consistency with createQuickPost
     const userId = getUserId(event);
+
+    // Check rate limit: 10 posts per 10 minutes
+    const isRateLimited = await checkRateLimit(userId, RATE_LIMITS.POST_CREATE);
+    if (isRateLimited) {
+      return createResponse(429, {
+        error: 'Bạn đã đăng quá nhiều bài. Vui lòng thử lại sau 10 phút.',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    }
+
     const body = JSON.parse(event.body || '{}');
     const { recipeId, title, content, images, privacy } = body;
 
@@ -227,6 +248,16 @@ export async function shareRecipeAsPost(
 export async function sharePost(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     const userId = getUserId(event);
+
+    // Check rate limit: 10 posts per 10 minutes
+    const isRateLimited = await checkRateLimit(userId, RATE_LIMITS.POST_CREATE);
+    if (isRateLimited) {
+      return createResponse(429, {
+        error: 'Bạn đã đăng quá nhiều bài. Vui lòng thử lại sau 10 phút.',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    }
+
     const originalPostId = event.pathParameters?.postId;
 
     if (!originalPostId) {

@@ -31,6 +31,9 @@ export interface AdminAction {
   // Additional Context
   metadata?: Record<string, any>;
 
+  // TTL for auto-cleanup (next Monday after 1 week)
+  ttl: number;
+
   // Entity Type
   entityType: 'ADMIN_ACTION';
 }
@@ -53,7 +56,9 @@ export type AdminActionType =
   | 'VIEW_BUSINESS_METRICS'
   | 'VIEW_COST_DATA'
   | 'APPROVE_APPEAL'
-  | 'REJECT_APPEAL';
+  | 'REJECT_APPEAL'
+  | 'ARCHIVE_REPORTS'
+  | 'ARCHIVE_ACTIVITY';
 
 /**
  * Create Admin Action Entity
@@ -63,6 +68,27 @@ export type AdminActionType =
  * @param params - Admin action parameters
  * @returns Admin action entity
  */
+/**
+ * Calculate TTL for next Monday after 1 week
+ * Activity logs will be auto-deleted on Monday of the week after next
+ */
+function calculateNextMondayTTL(): number {
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
+  
+  // Calculate days until next Monday (if today is Monday, go to next week's Monday)
+  const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
+  
+  // Add 7 more days to get Monday after next week (total ~1-2 weeks retention)
+  const daysToAdd = daysUntilMonday + 7;
+  
+  const targetDate = new Date(now);
+  targetDate.setUTCDate(targetDate.getUTCDate() + daysToAdd);
+  targetDate.setUTCHours(0, 0, 0, 0); // Start of day
+  
+  return Math.floor(targetDate.getTime() / 1000);
+}
+
 export function createAdminAction(params: {
   adminUserId: string;
   adminUsername: string;
@@ -93,6 +119,7 @@ export function createAdminAction(params: {
     userAgent: params.userAgent,
     timestamp,
     metadata: params.metadata,
+    ttl: calculateNextMondayTTL(),
     entityType: 'ADMIN_ACTION',
   };
 }

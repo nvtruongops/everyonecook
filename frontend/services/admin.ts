@@ -186,7 +186,10 @@ export type AdminActionType =
   | 'CLEANUP_USERS'
   | 'VIEW_SYSTEM_HEALTH'
   | 'VIEW_BUSINESS_METRICS'
-  | 'VIEW_COST_DATA';
+  | 'VIEW_COST_DATA'
+  // Archive actions
+  | 'ARCHIVE_REPORTS'
+  | 'ARCHIVE_ACTIVITY';
 
 export interface ActivityLog {
   activityId: string;
@@ -1134,6 +1137,51 @@ export async function getDetailedStats(
   return apiRequest<DetailedStats>(url, token);
 }
 
+// ============ Direct Hide Post/Comment (Admin Menu) ============
+
+export interface HideContentParams {
+  reason: string;
+  notifyUser?: boolean;
+}
+
+/**
+ * Admin directly hides a post from the 3-dot menu
+ * Uses the same backend as take-action with action='hide_post'
+ */
+export async function hidePostDirectly(
+  postId: string,
+  params: HideContentParams,
+  token: string
+): Promise<any> {
+  return apiRequest(`/admin/posts/${postId}/action`, token, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'hide_post',
+      reason: params.reason,
+      notifyUser: params.notifyUser !== false,
+    }),
+  });
+}
+
+/**
+ * Admin directly hides a comment from the 3-dot menu
+ * Uses the same backend as take-comment-action with action='hide_comment'
+ */
+export async function hideCommentDirectly(
+  commentId: string,
+  params: HideContentParams,
+  token: string
+): Promise<any> {
+  return apiRequest(`/admin/comments/${commentId}/action`, token, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'hide_comment',
+      reason: params.reason,
+      notifyUser: params.notifyUser !== false,
+    }),
+  });
+}
+
 // ============ Delete User Types ============
 
 export interface DeleteUserStats {
@@ -1198,4 +1246,33 @@ export async function deleteUserPermanently(
 
   const result = await response.json();
   return result.data || result;
+}
+
+// ============ Archive Types ============
+
+export interface ArchiveResult {
+  message: string;
+  archivedCount: number;
+  deletedCount: number;
+  s3Key: string;
+  errors: string[];
+}
+
+/**
+ * Archive processed reports to S3 and delete from DynamoDB
+ * Only archives reports with status: 'resolved' or 'dismissed'
+ */
+export async function archiveReports(token: string): Promise<ArchiveResult> {
+  return apiRequest<ArchiveResult>('/admin/reports/archive', token, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Archive activity logs to S3 and delete from DynamoDB
+ */
+export async function archiveActivity(token: string): Promise<ArchiveResult> {
+  return apiRequest<ArchiveResult>('/admin/activity/archive', token, {
+    method: 'POST',
+  });
 }

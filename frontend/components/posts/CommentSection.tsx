@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getComments, createComment, deleteComment, Comment } from '@/services/posts';
 import CachedAvatar from '@/components/ui/CachedAvatar';
 import { useAvatarPreload } from '@/hooks/useAvatarPreload';
+import { isAdmin } from '@/lib/adminAuth';
+import { hideCommentDirectly } from '@/services/admin';
 
 import ReportCommentModal from './ReportCommentModal';
 
@@ -31,12 +33,25 @@ export default function CommentSection({
     null
   );
   const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
+  // Admin hide comment states
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [showAdminHideModal, setShowAdminHideModal] = useState(false);
+  const [adminHideCommentId, setAdminHideCommentId] = useState<string | null>(null);
+  const [adminHideReason, setAdminHideReason] = useState('');
+  const [hidingComment, setHidingComment] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Preload comment avatars
   useAvatarPreload(comments, (c) => c.authorAvatar);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (user) {
+      isAdmin().then(setIsUserAdmin);
+    }
+  }, [user]);
 
   // Notify parent of comment count changes
   const updateCommentCount = useCallback(
@@ -139,6 +154,26 @@ export default function CommentSection({
   const openReportModal = (commentId: string) => {
     setOpenMenuId(null);
     setReportingCommentId(commentId);
+  };
+
+  // Handle admin hide comment
+  const handleAdminHideComment = async () => {
+    if (!token || hidingComment || !adminHideReason.trim() || !adminHideCommentId) return;
+
+    setHidingComment(true);
+    try {
+      await hideCommentDirectly(adminHideCommentId, { reason: adminHideReason.trim() }, token);
+      setShowAdminHideModal(false);
+      setAdminHideReason('');
+      setAdminHideCommentId(null);
+      // Refresh comments
+      loadComments(false);
+    } catch (error: any) {
+      console.error('Failed to hide comment:', error);
+      alert(error.message || 'Không thể ẩn bình luận');
+    } finally {
+      setHidingComment(false);
+    }
   };
 
   // Cancel reply
@@ -401,15 +436,33 @@ export default function CommentSection({
                                 Xóa
                               </button>
                             ) : (
-                              <button
-                                onClick={() => openReportModal(commentId)}
-                                className="w-full px-3 py-1.5 text-left text-sm text-[#975b1d] hover:bg-[#f5f0e8] flex items-center gap-2"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                                </svg>
-                                Báo cáo
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => openReportModal(commentId)}
+                                  className="w-full px-3 py-1.5 text-left text-sm text-[#975b1d] hover:bg-[#f5f0e8] flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                                  </svg>
+                                  Báo cáo
+                                </button>
+                                {/* Admin: Hide Comment */}
+                                {isUserAdmin && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      setAdminHideCommentId(commentId);
+                                      setShowAdminHideModal(true);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2 border-t border-gray-100"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                    [Admin] Ẩn
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         )}
@@ -441,6 +494,97 @@ export default function CommentSection({
         isOpen={!!reportingCommentId}
         onClose={() => setReportingCommentId(null)}
       />
+
+      {/* Admin Hide Comment Modal */}
+      {showAdminHideModal && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          onClick={() => setShowAdminHideModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+            </div>
+
+            {/* Content */}
+            <h3 className="text-xl font-semibold text-center mb-2 text-gray-900">Ẩn bình luận này?</h3>
+            <p className="text-gray-600 text-center mb-4 text-sm">
+              Bình luận sẽ bị ẩn và người dùng sẽ nhận được thông báo. Họ có thể kháng cáo trong 7 ngày.
+            </p>
+
+            {/* Reason Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lý do ẩn bình luận <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={adminHideReason}
+                onChange={(e) => setAdminHideReason(e.target.value)}
+                placeholder="Nhập lý do ẩn bình luận (bắt buộc)..."
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 resize-none text-gray-800"
+                rows={3}
+                maxLength={500}
+              />
+              <div className="text-right text-xs text-gray-400 mt-1">{adminHideReason.length}/500</div>
+            </div>
+
+            {/* Quick Reasons */}
+            <div className="mb-4">
+              <p className="text-xs text-gray-500 mb-2">Lý do nhanh:</p>
+              <div className="flex flex-wrap gap-2">
+                {['Vi phạm quy định cộng đồng', 'Ngôn từ không phù hợp', 'Spam', 'Quấy rối', 'Thông tin sai lệch'].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setAdminHideReason(reason)}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-lg transition"
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowAdminHideModal(false);
+                  setAdminHideReason('');
+                  setAdminHideCommentId(null);
+                }}
+                disabled={hidingComment}
+                className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleAdminHideComment}
+                disabled={hidingComment || !adminHideReason.trim()}
+                className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {hidingComment ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Đang ẩn...
+                  </span>
+                ) : (
+                  'Ẩn bình luận'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,12 +5,15 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Comment, reportComment, CommentReportReason } from '@/services/comments';
+import { reportComment, CommentReportReason } from '@/services/comments';
+import type { Comment } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import CommentInput from './CommentInput';
+import { isAdmin } from '@/lib/adminAuth';
+import { hideCommentDirectly } from '@/services/admin';
 
 interface CommentItemProps {
   comment: Comment;
@@ -38,15 +41,26 @@ export default function CommentItem({
   onReplyCreated,
   level = 0,
 }: CommentItemProps) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showAdminHideModal, setShowAdminHideModal] = useState(false);
+  const [adminHideReason, setAdminHideReason] = useState('');
+  const [hidingComment, setHidingComment] = useState(false);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [reportReason, setReportReason] = useState<CommentReportReason>('spam');
   const [reportDetails, setReportDetails] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (user) {
+      isAdmin().then(setIsUserAdmin);
+    }
+  }, [user]);
 
   // Check if current user owns this comment
   // API may return user_id or authorId depending on the endpoint
@@ -54,14 +68,7 @@ export default function CommentItem({
   const isOwnComment = currentUserId && commentUserId && currentUserId === commentUserId;
   const maxNestingLevel = 2; // Limit nesting to 2 levels
 
-  // Debug log - remove after testing
-  console.log('[CommentItem] Debug:', {
-    currentUserId,
-    commentUserId,
-    'comment.user_id': comment.user_id,
-    isOwnComment,
-    showReport: currentUserId && !isOwnComment,
-  });
+
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -107,7 +114,7 @@ export default function CommentItem({
 
     setReporting(true);
     try {
-      const commentId = comment.comment_id || comment.id;
+      const commentId = comment.comment_id || comment.id || '';
       await reportComment(token, postId, commentId, reportReason, reportDetails);
       setReportSuccess(true);
       setTimeout(() => {
@@ -121,6 +128,26 @@ export default function CommentItem({
       alert('Không thể báo cáo bình luận. Vui lòng thử lại.');
     } finally {
       setReporting(false);
+    }
+  };
+
+  // Handle admin hide comment
+  const handleAdminHideComment = async () => {
+    if (!token || hidingComment || !adminHideReason.trim()) return;
+
+    setHidingComment(true);
+    const commentId = comment.comment_id || comment.id || '';
+    try {
+      await hideCommentDirectly(commentId, { reason: adminHideReason.trim() }, token);
+      setShowAdminHideModal(false);
+      setAdminHideReason('');
+      // Refresh comments
+      onReplyCreated?.();
+    } catch (error: any) {
+      console.error('Failed to hide comment:', error);
+      alert(error.message || 'Không thể ẩn bình luận');
+    } finally {
+      setHidingComment(false);
     }
   };
 
@@ -187,7 +214,7 @@ export default function CommentItem({
           {/* Action Buttons */}
           <div className="flex items-center gap-3 mt-1 px-2">
             <span className="text-xs text-gray-500">
-              {formatDate(comment.created_at || comment.createdAt)}
+              {formatDate(comment.created_at || String(comment.createdAt))}
             </span>
 
             {level < maxNestingLevel && (
@@ -216,29 +243,40 @@ export default function CommentItem({
               </button>
             )}
 
+            {/* Admin: Hide Comment button */}
+            {isUserAdmin && !isOwnComment && (
+              <button
+                onClick={() => setShowAdminHideModal(true)}
+                className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition"
+                title="[Admin] Ẩn bình luận"
+              >
+                [Admin] Ẩn
+              </button>
+            )}
+
             {isOwnComment && onDelete && (
               <div className="relative ml-auto">
                 <button
                   onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-                  className="text-xs font-semibold text-gray-600 hover:text-red-600 transition"
+                  className="text-xs font-semibold text-gray-600 hover:text-red-600 transition min-h-[32px] px-2"
                 >
                   Xóa
                 </button>
 
                 {showDeleteConfirm && (
-                  <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-48 z-10">
+                  <div className="absolute right-0 sm:right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-44 sm:w-48 z-10">
                     <p className="text-xs text-gray-700 mb-2">Xóa bình luận này?</p>
                     <div className="flex gap-2">
                       <button
                         onClick={handleDelete}
                         disabled={deleting}
-                        className="flex-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition disabled:opacity-50"
+                        className="flex-1 px-2 py-1.5 min-h-[36px] bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 transition disabled:opacity-50"
                       >
-                        {deleting ? 'Đang xóa...' : 'Xóa'}
+                        {deleting ? '...' : 'Xóa'}
                       </button>
                       <button
                         onClick={() => setShowDeleteConfirm(false)}
-                        className="flex-1 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 transition"
+                        className="flex-1 px-2 py-1.5 min-h-[36px] bg-gray-200 text-gray-700 rounded-lg text-xs hover:bg-gray-300 transition"
                       >
                         Hủy
                       </button>
@@ -251,8 +289,8 @@ export default function CommentItem({
 
           {/* Report Modal */}
           {showReportModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl p-4 sm:p-6 w-full max-w-md">
                 {reportSuccess ? (
                   <div className="text-center py-4">
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -330,6 +368,135 @@ export default function CommentItem({
                     </div>
                   </>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Admin Hide Comment Modal */}
+          {showAdminHideModal && (
+            <div
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+              onClick={() => setShowAdminHideModal(false)}
+            >
+              <div
+                className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Icon */}
+                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+                  <svg
+                    className="w-6 h-6 text-orange-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                    />
+                  </svg>
+                </div>
+
+                {/* Content */}
+                <h3 className="text-xl font-semibold text-center mb-2 text-gray-900">
+                  Ẩn bình luận này?
+                </h3>
+                <p className="text-gray-600 text-center mb-4 text-sm">
+                  Bình luận sẽ bị ẩn và người dùng sẽ nhận được thông báo. Họ có thể kháng cáo trong 7 ngày.
+                </p>
+
+                {/* Comment Preview */}
+                <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm text-gray-700">
+                  <span className="font-medium">@{comment.username}:</span>{' '}
+                  {comment.text?.substring(0, 100)}
+                  {(comment.text?.length || 0) > 100 && '...'}
+                </div>
+
+                {/* Reason Input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Lý do ẩn bình luận <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={adminHideReason}
+                    onChange={(e) => setAdminHideReason(e.target.value)}
+                    placeholder="Nhập lý do ẩn bình luận (bắt buộc)..."
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 resize-none text-gray-800"
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <div className="text-right text-xs text-gray-400 mt-1">
+                    {adminHideReason.length}/500
+                  </div>
+                </div>
+
+                {/* Quick Reasons */}
+                <div className="mb-4">
+                  <p className="text-xs text-gray-500 mb-2">Lý do nhanh:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      'Vi phạm quy định cộng đồng',
+                      'Ngôn từ không phù hợp',
+                      'Spam',
+                      'Quấy rối',
+                      'Thông tin sai lệch',
+                    ].map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => setAdminHideReason(reason)}
+                        className="px-2 py-1 text-xs bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-lg transition"
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowAdminHideModal(false);
+                      setAdminHideReason('');
+                    }}
+                    disabled={hidingComment}
+                    className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium disabled:opacity-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleAdminHideComment}
+                    disabled={hidingComment || !adminHideReason.trim()}
+                    className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {hidingComment ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="none"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Đang ẩn...
+                      </span>
+                    ) : (
+                      'Ẩn bình luận'
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}

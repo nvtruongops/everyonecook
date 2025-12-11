@@ -35,6 +35,9 @@ export interface Report {
   createdAt: string;
   reviewedAt?: string;
   reviewedBy?: string; // Admin user ID
+
+  // TTL for auto-cleanup (next Monday after 1 week)
+  ttl?: number;
 }
 
 /**

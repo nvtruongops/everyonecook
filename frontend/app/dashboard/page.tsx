@@ -71,7 +71,7 @@ function SearchSection({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Tìm theo tên món ăn..."
+          placeholder="Tìm theo tên món hoặc nguyên liệu (vd: lá dứa, bột bắp)..."
           className="flex-1 px-4 h-12 bg-[#f5f0e8]/50 border-2 border-transparent rounded-xl text-sm focus:outline-none focus:border-[#975b1d] text-[#203d11]"
         />
         {searchQuery && (
@@ -91,7 +91,7 @@ function SearchSection({
           Tìm
         </button>
       </div>
-      <p className="text-xs text-[#203d11]/50 mt-2">Tìm theo tên món ăn trong công thức</p>
+      <p className="text-xs text-[#203d11]/50 mt-2">Tìm theo tên món ăn hoặc nguyên liệu, dùng dấu phẩy để tìm nhiều từ khóa</p>
       {hasSearched && resultCount > 0 && (
         <div className="mt-4 flex items-center gap-2">
           <span className="text-xs text-[#203d11]/60">Sắp xếp:</span>
@@ -310,10 +310,32 @@ function DashboardContent() {
   const filteredPosts = useMemo(() => {
     let result = posts;
     if (searchQuery) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (p) => p.recipeData && (p.recipeData.title || '').toLowerCase().includes(q)
-      );
+      // Support multiple keywords separated by comma
+      const keywords = searchQuery
+        .toLowerCase()
+        .split(',')
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0);
+
+      result = result.filter((p) => {
+        if (!p.recipeData) return false;
+
+        const title = (p.recipeData.title || '').toLowerCase();
+        const ingredients = p.recipeData.ingredients || [];
+        const ingredientNames = ingredients.map((ing: any) => {
+          const name = ing.vietnamese || ing.name || ing.english || '';
+          return name.toLowerCase();
+        });
+
+        // Check if ALL keywords match (AND logic)
+        return keywords.every((keyword) => {
+          // Match in title
+          if (title.includes(keyword)) return true;
+          // Match in any ingredient
+          if (ingredientNames.some((name) => name.includes(keyword))) return true;
+          return false;
+        });
+      });
     }
     if (searchQuery && result.length > 0) {
       result = [...result].sort((a, b) => {
@@ -454,11 +476,29 @@ function DashboardContent() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-b from-[#f5f0e8] to-white pb-16 lg:pb-6">
+      <div className="min-h-screen bg-gradient-to-b from-[#f5f0e8] to-white pb-20 lg:pb-6 overflow-x-hidden">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Mobile: Search & Trending on top */}
+          <div className="lg:hidden mb-6">
+            <SearchSection
+              onSearch={(q) => setSearchQuery(q)}
+              onClear={() => {
+                setSearchQuery('');
+                setSortBy('newest');
+              }}
+              searchQuery={searchQuery}
+              resultCount={filteredPosts.length}
+              hasSearched={!!searchQuery}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+            />
+            <TrendingSection />
+          </div>
+          
           <div className="flex gap-6">
-            <div className="hidden lg:block relative" style={{ width: sidebarOpen ? '336px' : '48px' }}>
-              <div className={`absolute right-0 top-0 transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`} style={{ width: '320px', right: '48px' }}>
+            {/* Desktop: Sidebar */}
+            <div className={`hidden lg:block relative flex-shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-[336px]' : 'w-12'}`}>
+              <div className={`absolute top-0 transition-all duration-300 w-80 ${sidebarOpen ? 'opacity-100 translate-x-0 right-12' : 'opacity-0 -translate-x-4 pointer-events-none right-12'}`}>
                 <SearchSection
                   onSearch={(q) => setSearchQuery(q)}
                   onClear={() => {
@@ -475,30 +515,18 @@ function DashboardContent() {
               </div>
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="absolute right-0 top-0 h-10 w-10 bg-white border border-[#203d11]/10 rounded-xl flex items-center justify-center shadow-sm hover:bg-[#f5f0e8] transition"
+                className="absolute right-0 top-0 h-10 w-10 bg-white border border-[#203d11]/10 rounded-xl flex items-center justify-center shadow-sm hover:bg-[#f5f0e8] transition-colors"
                 title={sidebarOpen ? 'Thu gọn' : 'Mở rộng'}
+                aria-label={sidebarOpen ? 'Thu gọn sidebar' : 'Mở rộng sidebar'}
               >
-                <svg className="w-4 h-4 text-[#203d11]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? "M11 19l-7-7 7-7m8 14l-7-7 7-7" : "M13 5l7 7-7 7M5 5l7 7-7 7"} />
+                <svg className={`w-4 h-4 text-[#203d11] transition-transform duration-300 ${sidebarOpen ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                 </svg>
               </button>
             </div>
-            <div className="lg:hidden w-full order-1">
-              <SearchSection
-                onSearch={(q) => setSearchQuery(q)}
-                onClear={() => {
-                  setSearchQuery('');
-                  setSortBy('newest');
-                }}
-                searchQuery={searchQuery}
-                resultCount={filteredPosts.length}
-                hasSearched={!!searchQuery}
-                sortBy={sortBy}
-                onSortChange={setSortBy}
-              />
-              <TrendingSection />
-            </div>
-            <div className={`flex-1 max-w-[800px] ${sidebarOpen ? '' : 'mx-auto'}`}>
+            
+            {/* Main content */}
+            <div className={`flex-1 min-w-0 w-full lg:max-w-[800px] ${sidebarOpen ? '' : 'mx-auto'}`}>
               <div className="mb-6">
                 <Suspense
                   fallback={
@@ -568,7 +596,7 @@ function DashboardContent() {
                           post={post}
                           onPostDeleted={() => handleDeletePost(post.post_id)}
                           onPostUpdated={handlePostUpdated}
-                          priority={i === 0}
+                          priority={i < 3}
                         />
                       </Suspense>
                     ))}

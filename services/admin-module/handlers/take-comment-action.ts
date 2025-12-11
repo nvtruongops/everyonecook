@@ -110,12 +110,15 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       comment = commentResult.Item;
     }
 
-    // If not found, scan with pagination
+    // If not found, scan with pagination (increased limit for direct admin hide)
     if (!comment) {
       let lastKey: Record<string, any> | undefined;
       let scanCount = 0;
+      const maxScans = 20; // Increased from 5 to handle larger tables
 
-      while (!comment && scanCount < 5) {
+      console.log('[TakeCommentAction] Scanning for comment:', commentId);
+
+      while (!comment && scanCount < maxScans) {
         const scanResult = await dynamoDB.send(
           new ScanCommand({
             TableName: TABLE_NAME,
@@ -124,14 +127,17 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
               ':sk': `COMMENT#${commentId}`,
             },
             ExclusiveStartKey: lastKey,
+            Limit: 1000, // Scan more items per request
           })
         );
 
         scanCount++;
+        console.log(`[TakeCommentAction] Scan ${scanCount}/${maxScans}, found ${scanResult.Items?.length || 0} items`);
 
         if (scanResult.Items && scanResult.Items.length > 0) {
           comment = scanResult.Items[0];
           postId = comment.PK?.replace('POST#', '') || '';
+          console.log('[TakeCommentAction] Found comment in post:', postId);
         }
 
         lastKey = scanResult.LastEvaluatedKey;

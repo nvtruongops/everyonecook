@@ -11,6 +11,7 @@ import {
   getReportedComments,
   getCommentDetail,
   takeCommentAction,
+  archiveReports,
   Report,
   PostDetailResponse,
   CommentReport,
@@ -87,11 +88,33 @@ function ReportsContent() {
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Count processed reports (action_taken or dismissed)
+  const processedCount = postReports.filter(r => r.status === 'action_taken' || r.status === 'dismissed').length +
+    commentReports.filter(r => r.status === 'action_taken' || r.status === 'dismissed').length;
+
+  async function handleArchive() {
+    if (!token) return;
+    setShowArchiveConfirm(false);
+    
+    try {
+      setArchiving(true);
+      const result = await archiveReports(token);
+      await loadReports();
+      showToast(`${result.message} (${result.archivedCount} records → S3)`, 'success');
+    } catch (error) {
+      showToast('Lỗi khi archive: ' + (error as Error).message, 'error');
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   useEffect(() => {
     loadToken();
@@ -251,10 +274,59 @@ function ReportsContent() {
           </button>
           <h1 className="text-2xl md:text-3xl font-bold text-[#203d11]">Báo cáo & Kháng cáo</h1>
         </div>
-        <button onClick={loadReports} className="px-5 py-2.5 bg-[#203d11] text-white rounded-xl hover:bg-[#2a5016] font-medium transition-colors duration-200">
-          Làm mới
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => processedCount > 0 ? setShowArchiveConfirm(true) : showToast('Không có reports đã xử lý để archive', 'error')}
+            disabled={archiving || processedCount === 0}
+            className="px-5 py-2.5 bg-[#975b1d] text-white rounded-xl hover:bg-[#7a4a17] font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {archiving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Đang giải phóng...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                Giải phóng ({processedCount})
+              </>
+            )}
+          </button>
+          <button onClick={loadReports} className="px-5 py-2.5 bg-[#203d11] text-white rounded-xl hover:bg-[#2a5016] font-medium transition-colors duration-200">
+            Làm mới
+          </button>
+        </div>
       </div>
+
+      {/* Archive Confirmation Modal */}
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-bold text-[#203d11] mb-3">Xác nhận giải phóng</h3>
+            <p className="text-[#203d11]/70 mb-4">
+              Bạn có chắc muốn giải phóng {processedCount} reports đã xử lý?
+              <br /><br />
+              Dữ liệu sẽ được lưu vào S3 và xóa khỏi database.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowArchiveConfirm(false)}
+                className="px-4 py-2 border border-[#203d11]/20 text-[#203d11] rounded-xl hover:bg-[#f5f0e8] transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleArchive}
+                className="px-4 py-2 bg-[#975b1d] text-white rounded-xl hover:bg-[#7a4a17] transition-colors"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="flex flex-wrap gap-3">

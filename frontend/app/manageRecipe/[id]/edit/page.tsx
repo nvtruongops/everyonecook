@@ -85,6 +85,18 @@ interface Step {
   images?: string[];
 }
 
+interface ImageData {
+  buffer: ArrayBuffer;
+  type: string;
+  name: string;
+}
+
+interface PendingStepImage {
+  stepIndex: number;
+  imageData: ImageData;
+  preview: string;
+}
+
 function EditRecipeContent() {
   const router = useRouter();
   const params = useParams();
@@ -111,7 +123,8 @@ function EditRecipeContent() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [completedImage, setCompletedImage] = useState('');
   const [completedImagePreview, setCompletedImagePreview] = useState('');
-  const [completedImageFile, setCompletedImageFile] = useState<File | null>(null);
+  const [completedImageData, setCompletedImageData] = useState<ImageData | null>(null);
+  const [pendingStepImages, setPendingStepImages] = useState<PendingStepImage[]>([]);
 
   useEffect(() => {
     if (!authLoading && token) {
@@ -156,21 +169,36 @@ function EditRecipeContent() {
       if (permissions.canEditName) updates.recipe_name = name;
       if (permissions.canEditDescription) updates.recipe_description = description;
       if (permissions.canEditIngredients) updates.recipe_ingredients = ingredients;
-      // Always send steps if we can add step images (even if we can't edit step text)
-      if (permissions.canEditSteps || permissions.canAddStepImages) {
-        updates.recipe_steps = steps;
-      }
 
       // Handle completed image changes
       if (permissions.canAddCompletedImage) {
-        if (completedImageFile) {
-          // Upload new image
-          const cdnUrl = await uploadImageToS3(completedImageFile, 'completed');
+        if (completedImageData) {
+          // Upload new image from memory
+          const cdnUrl = await uploadImageToS3(completedImageData, 'completed');
           updates.images = { completed: cdnUrl };
         } else if (!completedImage && !completedImagePreview && recipe?.images?.completed) {
           // User deleted existing image (no new file, no preview, but had original)
           updates.images = { completed: '' };
         }
+      }
+
+      // Handle pending step images - upload all and merge with existing
+      if (permissions.canAddStepImages && pendingStepImages.length > 0) {
+        // Clone steps to update with new image URLs
+        const updatedSteps = [...steps];
+
+        for (const pending of pendingStepImages) {
+          const cdnUrl = await uploadImageToS3(pending.imageData, 'step', pending.stepIndex);
+          const step = updatedSteps[pending.stepIndex];
+          if (step) {
+            step.images = [...(step.images || []), cdnUrl];
+          }
+        }
+
+        updates.recipe_steps = updatedSteps;
+      } else if (permissions.canEditSteps || permissions.canAddStepImages) {
+        // Always send steps if we can add step images (even if we can't edit step text)
+        updates.recipe_steps = steps;
       }
 
       await updateRecipe(recipeId, updates, token || undefined);
@@ -181,7 +209,7 @@ function EditRecipeContent() {
       let displayMessage = errorMessage;
       if (errorMessage.includes('Upload limit exceeded') || errorMessage.includes('RATE_LIMIT')) {
         displayMessage =
-          '⚠️ Đã vượt quá giới hạn upload (10 ảnh/ngày). Vui lòng thử lại vào ngày mai.';
+          '⚠️ Đã vượt quá giới hạn upload (50 ảnh/ngày). Vui lòng thử lại vào ngày mai.';
       } else if (errorMessage.includes('UNAUTHORIZED')) {
         displayMessage = '🔒 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
       } else if (errorMessage.includes('not found')) {
@@ -246,12 +274,15 @@ function EditRecipeContent() {
 
   // Upload image to S3 using presigned URL
   const uploadImageToS3 = async (
-    file: File,
+    imageData: ImageData,
     imageType: 'completed' | 'step',
     stepIndex?: number
   ): Promise<string> => {
+    // Create Blob from pre-loaded ArrayBuffer
+    const fileBlob = new Blob([imageData.buffer], { type: imageData.type });
+
     // Use simple filename - backend will add timestamp for uniqueness
-    const extension = file.name.split('.').pop() || 'jpg';
+    const extension = imageData.name.split('.').pop() || 'jpg';
     const fileName = `${imageType}${stepIndex !== undefined ? `-step${stepIndex}` : ''}.${extension}`;
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api-dev.everyonecook.cloud';
@@ -264,8 +295,8 @@ function EditRecipeContent() {
       body: JSON.stringify({
         fileType: 'recipe',
         fileName,
-        contentType: file.type,
-        fileSize: file.size,
+        contentType: imageData.type,
+        fileSize: imageData.buffer.byteLength,
         subFolder: recipeId,
       }),
     });
@@ -279,8 +310,8 @@ function EditRecipeContent() {
 
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
+      headers: { 'Content-Type': imageData.type },
+      body: fileBlob,
     });
 
     if (!uploadResponse.ok) {
@@ -290,22 +321,25 @@ function EditRecipeContent() {
     return cdnUrl;
   };
 
-  // Handle completed image file selection
-  const handleCompletedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle completed image file selection - read into memory immediately
+  const handleCompletedImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         alert('Ảnh không được vượt quá 5MB');
         return;
       }
-      setCompletedImageFile(file);
+      // Read file into ArrayBuffer immediately to prevent reference loss
+      const buffer = await file.arrayBuffer();
+      setCompletedImageData({ buffer, type: file.type, name: file.name });
+      
       const reader = new FileReader();
       reader.onloadend = () => setCompletedImagePreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  // Handle step image file selection
+  // Handle step image file selection - save to memory, upload on Save
   const handleStepImageChange = async (
     stepIndex: number,
     e: React.ChangeEvent<HTMLInputElement>
@@ -315,7 +349,10 @@ function EditRecipeContent() {
 
     const step = steps[stepIndex];
     const currentImages = step.images || [];
-    if (currentImages.length >= (permissions?.maxStepImages || 3)) {
+    const pendingForStep = pendingStepImages.filter((p) => p.stepIndex === stepIndex);
+    const totalImages = currentImages.length + pendingForStep.length;
+
+    if (totalImages >= (permissions?.maxStepImages || 3)) {
       alert(`Tối đa ${permissions?.maxStepImages || 3} ảnh cho mỗi bước`);
       return;
     }
@@ -325,16 +362,29 @@ function EditRecipeContent() {
       return;
     }
 
-    try {
-      setUploading(true);
-      const cdnUrl = await uploadImageToS3(file, 'step', stepIndex);
-      updateStep(stepIndex, 'images', [...currentImages, cdnUrl]);
-    } catch (err) {
-      alert('Lỗi upload ảnh: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    } finally {
-      setUploading(false);
-      // Reset input
-      if (e.target) e.target.value = '';
+    // Read file into ArrayBuffer immediately
+    const buffer = await file.arrayBuffer();
+    const imageData: ImageData = { buffer, type: file.type, name: file.name };
+
+    // Create preview
+    const preview = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+
+    setPendingStepImages((prev) => [...prev, { stepIndex, imageData, preview }]);
+
+    // Reset input
+    if (e.target) e.target.value = '';
+  };
+
+  // Remove pending step image
+  const removePendingStepImage = (stepIndex: number, pendingIndex: number) => {
+    const pendingForStep = pendingStepImages.filter((p) => p.stepIndex === stepIndex);
+    const imageToRemove = pendingForStep[pendingIndex];
+    if (imageToRemove) {
+      setPendingStepImages((prev) => prev.filter((p) => p !== imageToRemove));
     }
   };
 
@@ -562,12 +612,27 @@ function EditRecipeContent() {
                       {/* Step Images */}
                       {permissions.canAddStepImages && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-2">
-                            Ảnh bước nấu ({step.images?.length || 0}/{permissions.maxStepImages})
-                          </p>
+                          {(() => {
+                            const pendingForStep = pendingStepImages.filter(
+                              (p) => p.stepIndex === idx
+                            );
+                            const totalImages =
+                              (step.images?.length || 0) + pendingForStep.length;
+                            return (
+                              <p className="text-xs text-slate-500 mb-2">
+                                Ảnh bước nấu ({totalImages}/{permissions.maxStepImages})
+                                {pendingForStep.length > 0 && (
+                                  <span className="text-amber-600 ml-1">
+                                    ({pendingForStep.length} chờ upload)
+                                  </span>
+                                )}
+                              </p>
+                            );
+                          })()}
                           <div className="flex flex-wrap gap-2">
+                            {/* Existing uploaded images */}
                             {step.images?.map((img, imgIdx) => (
-                              <div key={imgIdx} className="relative w-16 h-16">
+                              <div key={`existing-${imgIdx}`} className="relative w-16 h-16">
                                 <Image
                                   src={img}
                                   alt=""
@@ -583,34 +648,65 @@ function EditRecipeContent() {
                                 </button>
                               </div>
                             ))}
-                            {(step.images?.length || 0) < permissions.maxStepImages && (
-                              <label className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 hover:border-emerald-500 hover:text-emerald-500 cursor-pointer">
-                                <input
-                                  type="file"
-                                  accept="image/jpeg,image/png,image/webp"
-                                  onChange={(e) => handleStepImageChange(idx, e)}
-                                  className="hidden"
-                                  disabled={uploading}
-                                />
-                                {uploading ? (
-                                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent"></div>
-                                ) : (
-                                  <svg
-                                    className="w-6 h-6"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
+                            {/* Pending images (not yet uploaded) */}
+                            {pendingStepImages
+                              .filter((p) => p.stepIndex === idx)
+                              .map((pending, pendingIdx) => (
+                                <div
+                                  key={`pending-${pendingIdx}`}
+                                  className="relative w-16 h-16 ring-2 ring-amber-400 rounded-lg"
+                                >
+                                  <Image
+                                    src={pending.preview}
+                                    alt=""
+                                    fill
+                                    sizes="64px"
+                                    className="object-cover rounded-lg"
+                                  />
+                                  <button
+                                    onClick={() => removePendingStepImage(idx, pendingIdx)}
+                                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs z-10"
                                   >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M12 4v16m8-8H4"
+                                    ×
+                                  </button>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-amber-500 text-white text-[8px] text-center">
+                                    Chờ
+                                  </div>
+                                </div>
+                              ))}
+                            {/* Add button */}
+                            {(() => {
+                              const pendingForStep = pendingStepImages.filter(
+                                (p) => p.stepIndex === idx
+                              );
+                              const totalImages =
+                                (step.images?.length || 0) + pendingForStep.length;
+                              return (
+                                totalImages < permissions.maxStepImages && (
+                                  <label className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 hover:border-emerald-500 hover:text-emerald-500 cursor-pointer">
+                                    <input
+                                      type="file"
+                                      accept="image/jpeg,image/png,image/webp"
+                                      onChange={(e) => handleStepImageChange(idx, e)}
+                                      className="hidden"
                                     />
-                                  </svg>
-                                )}
-                              </label>
-                            )}
+                                    <svg
+                                      className="w-6 h-6"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 4v16m8-8H4"
+                                      />
+                                    </svg>
+                                  </label>
+                                )
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
@@ -684,7 +780,7 @@ function EditRecipeContent() {
                       onClick={() => {
                         setCompletedImage('');
                         setCompletedImagePreview('');
-                        setCompletedImageFile(null);
+                        setCompletedImageData(null);
                       }}
                       className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full z-10"
                     >

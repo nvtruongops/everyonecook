@@ -257,12 +257,12 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-12 bg-[#15290b]">
         <div className="w-full max-w-[1200px] mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8">
             <div className="flex items-center gap-3">
               <Logo size={32} />
               <span className="text-lg font-bold text-white">Everyone Cook</span>
             </div>
-            <div className="flex items-center gap-8 text-sm">
+            <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6 md:gap-8 text-sm">
               <Link href="/privacy" className="text-white/60 hover:text-white transition-colors">
                 Chính sách bảo mật
               </Link>

@@ -121,3 +121,8 @@ check-*.js
 debug-*.js
 test-*.json
 
+# ============================================
+# ARCHIVE LOGS (downloaded from S3)
+# ============================================
+checklog/
+

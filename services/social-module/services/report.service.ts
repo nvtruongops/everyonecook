@@ -27,6 +27,27 @@ const TABLE_NAME = process.env.DYNAMODB_TABLE || 'EveryoneCook';
  */
 export class ReportService {
   /**
+   * Calculate TTL for next Monday after 1 week
+   * Reports will be auto-deleted on Monday of the week after next
+   */
+  private calculateNextMondayTTL(): number {
+    const now = new Date();
+    const dayOfWeek = now.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
+
+    // Calculate days until next Monday (if today is Monday, go to next week's Monday)
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+
+    // Add 7 more days to get Monday after next week (total ~1-2 weeks retention)
+    const daysToAdd = daysUntilMonday + 7;
+
+    const targetDate = new Date(now);
+    targetDate.setUTCDate(targetDate.getUTCDate() + daysToAdd);
+    targetDate.setUTCHours(0, 0, 0, 0); // Start of day
+
+    return Math.floor(targetDate.getTime() / 1000);
+  }
+
+  /**
    * Report content (post or comment)
    * Each user can only report once per target
    */
@@ -63,6 +84,9 @@ export class ReportService {
     const PK = targetType === 'post' ? `POST#${targetId}` : `COMMENT#${targetId}`;
     const SK = `REPORT#${userId}`;
 
+    // Calculate TTL: next Monday after 1 week
+    const ttl = this.calculateNextMondayTTL();
+
     const report: Report & { reporterUsername: string } = {
       PK,
       SK,
@@ -75,6 +99,7 @@ export class ReportService {
       details,
       status: 'pending',
       createdAt: now,
+      ttl,
     };
 
     await docClient.send(

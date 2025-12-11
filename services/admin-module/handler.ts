@@ -147,6 +147,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const { handler: getActivityHandler } = await import('./handlers/get-activity');
       return await getActivityHandler(event);
     }
+    // Archive activity logs to S3
+    if (method === 'POST' && path === '/admin/activity/archive') {
+      const { handler: archiveActivityHandler } = await import('./handlers/archive-activity');
+      return await archiveActivityHandler(event);
+    }
+    // Archive processed reports to S3
+    if (method === 'POST' && path === '/admin/reports/archive') {
+      const { handler: archiveReportsHandler } = await import('./handlers/archive-reports');
+      return await archiveReportsHandler(event);
+    }
 
     // Report Statistics endpoint
     if (method === 'GET' && path === '/admin/reports/stats') {

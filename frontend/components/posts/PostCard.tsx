@@ -18,6 +18,8 @@ import SharedPostCard from './SharedPostCard';
 import CachedAvatar from '@/components/ui/CachedAvatar';
 import OptimizedImage from '@/components/ui/OptimizedImage';
 import { normalizeImageUrl } from '@/lib/image-utils';
+import { isAdmin } from '@/lib/adminAuth';
+import { hidePostDirectly } from '@/services/admin';
 
 interface PostCardProps {
   post: Post;
@@ -342,6 +344,10 @@ export default function PostCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showAdminHideModal, setShowAdminHideModal] = useState(false);
+  const [adminHideReason, setAdminHideReason] = useState('');
+  const [hidingPost, setHidingPost] = useState(false);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   const [showComments, setShowComments] = useState(!!highlightCommentId);
   const [expandedRecipe, setExpandedRecipe] = useState(false);
@@ -358,6 +364,13 @@ export default function PostCard({
   );
 
   const [localPost, setLocalPost] = useState(post);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (user) {
+      isAdmin().then(setIsUserAdmin);
+    }
+  }, [user]);
 
   // Sync localPost when post ID changes (new post) but preserve optimistic updates
   // Only sync if the post ID is different (not just re-render with same post)
@@ -489,6 +502,26 @@ export default function PostCard({
     }
   };
 
+  // Handle admin hide post
+  const handleAdminHidePost = async () => {
+    if (!token || hidingPost || !adminHideReason.trim()) return;
+
+    setHidingPost(true);
+    const postId = post.post_id || post.postId;
+    try {
+      await hidePostDirectly(postId, { reason: adminHideReason.trim() }, token);
+      setShowAdminHideModal(false);
+      setAdminHideReason('');
+      // Refresh the feed to remove hidden post
+      onPostDeleted?.();
+    } catch (error: any) {
+      console.error('Failed to hide post:', error);
+      alert(error.message || 'Không thể ẩn bài viết');
+    } finally {
+      setHidingPost(false);
+    }
+  };
+
   // Handle edit post (title and privacy)
   const handleEditPost = async () => {
     if (!token || editing || !editTitle.trim()) return;
@@ -573,18 +606,18 @@ export default function PostCard({
           </Link>
 
           {/* User info */}
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <Link
                 href={`/users/${post.user_id}`}
                 prefetch={false}
-                className="font-medium text-gray-900 hover:underline"
+                className="font-medium text-gray-900 hover:underline truncate max-w-[150px] sm:max-w-[200px]"
               >
                 {post.username || 'Unknown User'}
               </Link>
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <span>{formatTime(String(post.created_at || new Date().toISOString()))}</span>
+            <div className="flex items-center gap-1 text-xs text-gray-500 flex-wrap">
+              <span className="whitespace-nowrap">{formatTime(String(post.created_at || new Date().toISOString()))}</span>
               <span>•</span>
               {/* Privacy indicator */}
               {(() => {
@@ -697,7 +730,7 @@ export default function PostCard({
                     </button>
                   </>
                 ) : (
-                  // Other user menu: Save Recipe + Report
+                  // Other user menu: Save Recipe + Report + Admin Hide
                   <>
                     {hasRecipeData && (
                       <button
@@ -750,6 +783,31 @@ export default function PostCard({
                       </svg>
                       Báo cáo
                     </button>
+                    {/* Admin: Hide Post */}
+                    {isUserAdmin && (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          setShowAdminHideModal(true);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2 border-t border-gray-100"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                          />
+                        </svg>
+                        <span className="font-medium">[Admin] Ẩn bài viết</span>
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -905,6 +963,7 @@ export default function PostCard({
                   fill
                   objectFit="cover"
                   className="rounded-lg"
+                  priority={priority}
                 />
               </div>
             )}
@@ -1139,20 +1198,20 @@ export default function PostCard({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 pt-3 border-t border-gray-200">
+      {/* Actions - Responsive for mobile */}
+      <div className="flex items-center gap-0.5 sm:gap-1 pt-3 border-t border-gray-200">
         {/* Like */}
         <button
           onClick={handleReaction}
           disabled={reacting}
-          className={`flex items-center gap-1 px-3 py-2 rounded-lg transition ${
+          className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition min-h-[36px] ${
             localPost.user_reaction
               ? 'text-red-600 bg-red-50 hover:bg-red-100'
               : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           <svg
-            className="w-5 h-5"
+            className="w-4 h-4 sm:w-5 sm:h-5"
             fill={localPost.user_reaction ? 'currentColor' : 'none'}
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -1164,15 +1223,15 @@ export default function PostCard({
               d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
             />
           </svg>
-          <span className="text-sm font-medium">{localPost.likes_count}</span>
+          <span className="text-xs sm:text-sm font-medium">{localPost.likes_count}</span>
         </button>
 
         {/* Comment */}
         <button
           onClick={() => setShowComments(!showComments)}
-          className="flex items-center gap-1 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition min-h-[36px]"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1180,7 +1239,7 @@ export default function PostCard({
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
             />
           </svg>
-          <span className="text-sm font-medium">{localPost.comments_count}</span>
+          <span className="text-xs sm:text-sm font-medium">{localPost.comments_count}</span>
         </button>
 
         {/* Share - Only show for other users' posts and non-shared posts (like Facebook) */}
@@ -1420,6 +1479,128 @@ export default function PostCard({
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
       />
+
+      {/* Admin Hide Post Modal */}
+      {showAdminHideModal && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          onClick={() => setShowAdminHideModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-6 h-6 text-orange-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                />
+              </svg>
+            </div>
+
+            {/* Content */}
+            <h3 className="text-xl font-semibold text-center mb-2 text-gray-900">
+              Ẩn bài viết này?
+            </h3>
+            <p className="text-gray-600 text-center mb-4 text-sm">
+              Bài viết sẽ bị ẩn và người dùng sẽ nhận được thông báo. Họ có thể kháng cáo trong 7 ngày.
+            </p>
+
+            {/* Reason Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lý do ẩn bài viết <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={adminHideReason}
+                onChange={(e) => setAdminHideReason(e.target.value)}
+                placeholder="Nhập lý do ẩn bài viết (bắt buộc)..."
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 resize-none text-gray-800"
+                rows={3}
+                maxLength={500}
+              />
+              <div className="text-right text-xs text-gray-400 mt-1">
+                {adminHideReason.length}/500
+              </div>
+            </div>
+
+            {/* Quick Reasons */}
+            <div className="mb-4">
+              <p className="text-xs text-gray-500 mb-2">Lý do nhanh:</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'Vi phạm quy định cộng đồng',
+                  'Nội dung không phù hợp',
+                  'Spam / Quảng cáo',
+                  'Thông tin sai lệch',
+                  'Quấy rối người khác',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setAdminHideReason(reason)}
+                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-orange-100 text-gray-700 rounded-lg transition"
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowAdminHideModal(false);
+                  setAdminHideReason('');
+                }}
+                disabled={hidingPost}
+                className="flex-1 px-4 py-2.5 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleAdminHidePost}
+                disabled={hidingPost || !adminHideReason.trim()}
+                className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {hidingPost ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Đang ẩn...
+                  </span>
+                ) : (
+                  'Ẩn bài viết'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

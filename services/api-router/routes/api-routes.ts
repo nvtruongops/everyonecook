@@ -909,6 +909,20 @@ export const API_ROUTES: RouteDefinition[] = [
     requiresAuth: true,
     description: 'Get admin activity log',
   },
+  {
+    method: HttpMethod.POST,
+    path: '/admin/activity/archive',
+    handler: HandlerModule.ADMIN,
+    requiresAuth: true,
+    description: 'Archive activity logs to S3 and delete from DynamoDB',
+  },
+  {
+    method: HttpMethod.POST,
+    path: '/admin/reports/archive',
+    handler: HandlerModule.ADMIN,
+    requiresAuth: true,
+    description: 'Archive processed reports to S3 and delete from DynamoDB',
+  },
 
   // User Management
   {

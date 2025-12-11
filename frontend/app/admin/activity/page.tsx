@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { getAdminToken } from '@/lib/adminAuth';
-import { getActivity, ActivityLog } from '@/services/admin';
+import { getActivity, archiveActivity, ActivityLog } from '@/services/admin';
+import Toast from '@/components/ui/Toast';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -30,6 +31,9 @@ const activityTypeConfig: Record<string, { label: string; color: string; categor
   // Appeal actions
   APPROVE_APPEAL: { label: 'Chấp nhận kháng cáo', color: 'bg-[#203d11]', category: 'appeal' },
   REJECT_APPEAL: { label: 'Từ chối kháng cáo', color: 'bg-red-600', category: 'appeal' },
+  // Archive actions
+  ARCHIVE_REPORTS: { label: 'Giải phóng reports', color: 'bg-blue-600', category: 'system' },
+  ARCHIVE_ACTIVITY: { label: 'Giải phóng activity', color: 'bg-blue-600', category: 'system' },
 };
 
 
@@ -93,6 +97,37 @@ export default function AdminActivityPage() {
   const [hasMore, setHasMore] = useState(false);
   const [lastKey, setLastKey] = useState<string | undefined>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  async function handleArchive() {
+    setShowConfirm(false);
+    
+    try {
+      setArchiving(true);
+      const token = await getAdminToken();
+      if (!token) return;
+      
+      const result = await archiveActivity(token);
+      
+      // Reload activities after archive
+      await loadActivities();
+      
+      setToast({ 
+        message: `${result.message} (${result.archivedCount} records → S3)`, 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error('Archive failed:', error);
+      setToast({ 
+        message: 'Lỗi khi archive: ' + (error instanceof Error ? error.message : 'Unknown error'), 
+        type: 'error' 
+      });
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   async function loadActivities(reset = true) {
     try {
@@ -191,6 +226,9 @@ export default function AdminActivityPage() {
       // Appeal actions
       case 'APPROVE_APPEAL': return `${admin} đã chấp nhận kháng cáo của ${target}`;
       case 'REJECT_APPEAL': return `${admin} đã từ chối kháng cáo của ${target}`;
+      // Archive actions
+      case 'ARCHIVE_REPORTS': return `${admin} đã giải phóng reports (${activity.metadata?.archivedCount || 0} records)`;
+      case 'ARCHIVE_ACTIVITY': return `${admin} đã giải phóng activity logs (${activity.metadata?.archivedCount || 0} records)`;
       default: 
         const config = activityTypeConfig[activity.actionType];
         return config ? `${admin} - ${config.label}${target ? ` (${target})` : ''}` : `${admin} thực hiện ${activity.actionType}`;
@@ -210,13 +248,72 @@ export default function AdminActivityPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl md:text-3xl font-bold text-[#203d11]">Nhật ký hoạt động</h1>
-        <button
-          onClick={() => loadActivities()}
-          className="px-5 py-2.5 bg-[#203d11] text-white rounded-xl hover:bg-[#2a5016] flex items-center gap-2 transition-colors duration-200 font-medium"
-        >
-          Làm mới
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowConfirm(true)}
+            disabled={archiving || allActivities.length === 0}
+            className="px-5 py-2.5 bg-[#975b1d] text-white rounded-xl hover:bg-[#7a4a17] flex items-center gap-2 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {archiving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Đang giải phóng...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                Giải phóng
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => loadActivities()}
+            className="px-5 py-2.5 bg-[#203d11] text-white rounded-xl hover:bg-[#2a5016] flex items-center gap-2 transition-colors duration-200 font-medium"
+          >
+            Làm mới
+          </button>
+        </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-bold text-[#203d11] mb-3">Xác nhận giải phóng</h3>
+            <p className="text-[#203d11]/70 mb-4">
+              Bạn có chắc muốn giải phóng tất cả {allActivities.length} activity logs?
+              <br /><br />
+              Dữ liệu sẽ được lưu vào S3 và xóa khỏi database.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="px-4 py-2 border border-[#203d11]/20 text-[#203d11] rounded-xl hover:bg-[#f5f0e8] transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleArchive}
+                className="px-4 py-2 bg-[#975b1d] text-white rounded-xl hover:bg-[#7a4a17] transition-colors"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+          duration={5000}
+        />
+      )}
 
 
 

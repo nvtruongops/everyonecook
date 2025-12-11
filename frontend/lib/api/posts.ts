@@ -8,6 +8,9 @@ import apiClient from './client';
 import type { ApiResponse, Comment, PaginatedResponse } from '@/types';
 import type { Post } from '@/types/posts';
 
+// Re-export Comment type for convenience
+export type { Comment } from '@/types';
+
 /**
  * Get social feed
  */
