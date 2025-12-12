@@ -427,7 +427,6 @@ Private - All rights reserved.
 ## 🔗 Links
 
 - [Production](https://everyonecook.cloud)
-- [Development](https://dev.everyonecook.cloud)
 - [GitHub Repository](https://github.com/nvtruongops/everyonecook)
 
 ---
