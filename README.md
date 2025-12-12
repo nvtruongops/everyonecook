@@ -30,9 +30,7 @@
 ### Demo
 
 - **Production:** https://everyonecook.cloud
-- **Development:** https://dev.everyonecook.cloud
-- **API:** https://api.everyonecook.cloud
-
+- **Youtube** https://www.youtube.com/watch?v=wF7LJZpX89o&feature=youtu.be
 ---
 
 ## ✨ Tính năng
