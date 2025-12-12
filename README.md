@@ -355,15 +355,25 @@ Authorization: Bearer <ID_TOKEN>
 
 ## 💰 Cost Estimation (Dev Environment)
 
-| Service | Estimated Cost |
-|---------|---------------|
-| DynamoDB | ~$0 (pay per request) |
-| Lambda | ~$0 (free tier) |
-| S3 | ~$1-2/month |
-| CloudFront | ~$1-2/month |
-| API Gateway | ~$0 (free tier) |
-| Cognito | ~$0 (free tier) |
-| **Total** | **~$5-10/month** |
+**Based on AWS Pricing Calculator estimate for 100-500 MAU:**
+
+| Service            | Monthly Cost (USD) | Description                                       |
+|--------------------|--------------------|---------------------------------------------------|
+| Amazon DynamoDB    | \$13.06            | Single-table design, 5 GSIs, provisioned capacity |
+| Amazon S3          | \$0.84             | 2 buckets, Intelligent-Tiering                    |
+| Amazon CloudFront  | \$1.44             | CDN, Price Class 200                              |
+| Amazon Cognito     | \$5.00             | User authentication                               |
+| AWS Lambda         | \$0.00             | 13 functions (Free Tier)                          |
+| Amazon API Gateway | \$20.65            | REST API with 0.5GB cache                         |
+| Amazon SQS         | \$0.00             | 8 queues (Free Tier)                              |
+| Amazon SES         | \$0.02             | Transactional emails                              |
+| AWS KMS            | \$2.00             | 2 customer managed keys                           |
+| AWS WAF            | \$10.00            | Web ACL, 5 rules                                  |
+| Amazon CloudWatch  | \$21.25            | Metrics, dashboards, alarms, logs                 |
+| Amazon Route 53    | \$0.93             | DNS hosted zone                                   |
+| AWS Amplify        | \$4.58             | Frontend hosting (Next.js)                        |
+| Amazon Bedrock     | \$64.80            | Claude 3 Haiku AI                                 |
+| Total              | \~\$144.54         | Per month                                         |
 
 ---
 
@@ -398,11 +408,13 @@ npm run test:load
 
 ## 👥 Team
 
-| Role | Name |
-|------|------|
-| Frontend Developer | [Your Name] |
-| Backend Developer | [Team Member] |
-| DevOps | [Team Member] |
+| Name                 | Title  | Role            | Email / Contact Info        |
+|----------------------|--------|-----------------|-----------------------------|
+| Pham Minh Hoang Viet | Leader | Project Manager | vietpmhse181851@gmail.com   |
+| Nguyen Van Truong    | Member | DevOps          | truongnvse182034@fpt.edu.vn |
+| Huynh Duc Anh        | Member | Cloud Engineer  | anhhdse183114@fpt.edu.vn    |
+| Nguyen Thanh Hong    | Member | Tester          | hongntse183239@fpt.edu.vn   |
+| Nguyen Qui Duc       | Member | Frontend        | ducnqse182087@fpt.edu.vn    |
 
 ---
 
